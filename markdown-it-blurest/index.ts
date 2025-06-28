@@ -12,14 +12,286 @@ import {
   parseImageSrc,
 } from "@fuuck/blurest-core";
 
+interface ParseResult {
+  href: string;
+  title: string;
+  renderWidth: number | null;
+  renderHeight: number | null;
+}
+
+interface DimensionMatch {
+  width: number | null;
+  height: number | null;
+  consumed: number;
+}
+
+/**
+ * Parse dimension attributes from markdown image syntax
+ * Supports formats: =WxH, =Wx, =xH, =W (interpreted as width)
+ */
+function parseDimensions(src: string, startPos: number): DimensionMatch {
+  const remaining = src.slice(startPos);
+  const dimMatch = remaining.match(
+    /^\s*=\s*([0-9]*)x([0-9]*)|^\s*=\s*([0-9]+)(?!x)/
+  );
+
+  if (!dimMatch) {
+    return { width: null, height: null, consumed: 0 };
+  }
+
+  let width: number | null = null;
+  let height: number | null = null;
+
+  if (dimMatch[3]) {
+    // Format: =W (width only, no 'x')
+    width = parseInt(dimMatch[3], 10);
+  } else {
+    // Format: =WxH, =Wx, =xH
+    if (dimMatch[1]) width = parseInt(dimMatch[1], 10);
+    if (dimMatch[2]) height = parseInt(dimMatch[2], 10);
+  }
+
+  return {
+    width,
+    height,
+    consumed: dimMatch[0].length,
+  };
+}
+
+/**
+ * Skip whitespace characters including newlines
+ */
+function skipWhitespace(src: string, pos: number, max: number): number {
+  let newPos = pos;
+  while (newPos < max) {
+    const code = src.charCodeAt(newPos);
+    if (!isSpace(code) && code !== 0x0a) break;
+    newPos++;
+  }
+  return newPos;
+}
+
+/**
+ * Check if character code represents a space
+ */
+function isSpace(code: number): boolean {
+  return code === 0x20 || code === 0x09; // space or tab
+}
+
+/**
+ * Parse inline image link: ![alt](src "title" =WxH)
+ */
+function parseInlineLink(
+  state: StateInline,
+  pos: number,
+  md: MarkdownIt
+): ParseResult | null {
+  const max = state.posMax;
+  let currentPos = pos;
+  let href = "";
+  let title = "";
+  let renderWidth: number | null = null;
+  let renderHeight: number | null = null;
+
+  // Skip opening parenthesis
+  currentPos++;
+
+  // Skip whitespace after opening parenthesis
+  currentPos = skipWhitespace(state.src, currentPos, max);
+  if (currentPos >= max) return null;
+
+  // Parse link destination
+  const destResult = md.helpers.parseLinkDestination(
+    state.src,
+    currentPos,
+    max
+  );
+  if (destResult.ok) {
+    href = md.normalizeLink(destResult.str);
+    if (!md.validateLink(href)) {
+      href = "";
+    }
+    currentPos = destResult.pos;
+  }
+
+  // Skip whitespace after destination
+  const afterDestPos = currentPos;
+  currentPos = skipWhitespace(state.src, currentPos, max);
+
+  // Parse title if present
+  const titleResult = md.helpers.parseLinkTitle(state.src, currentPos, max);
+  if (currentPos < max && afterDestPos !== currentPos && titleResult.ok) {
+    title = titleResult.str;
+    currentPos = titleResult.pos;
+
+    // Skip whitespace after title
+    currentPos = skipWhitespace(state.src, currentPos, max);
+  }
+
+  // Parse dimensions if present
+  const dimResult = parseDimensions(state.src, currentPos);
+  if (dimResult.consumed > 0) {
+    renderWidth = dimResult.width;
+    renderHeight = dimResult.height;
+    currentPos += dimResult.consumed;
+
+    // Skip whitespace after dimensions
+    currentPos = skipWhitespace(state.src, currentPos, max);
+  }
+
+  // Check for closing parenthesis
+  if (currentPos >= max || state.src.charCodeAt(currentPos) !== 0x29 /* ) */) {
+    return null;
+  }
+
+  return {
+    href,
+    title,
+    renderWidth,
+    renderHeight,
+  };
+}
+
+/**
+ * Parse reference link: ![alt][ref] or ![alt][]
+ */
+function parseReferenceLink(
+  state: StateInline,
+  labelStart: number,
+  labelEnd: number,
+  pos: number,
+  md: MarkdownIt
+): ParseResult | null {
+  if (!state.env.references) return null;
+
+  const max = state.posMax;
+  let currentPos = pos;
+  let label = "";
+
+  // Check for explicit reference label
+  if (currentPos < max && state.src.charCodeAt(currentPos) === 0x5b /* [ */) {
+    const start = currentPos + 1;
+    const refLabelEnd = md.helpers.parseLinkLabel(state, currentPos);
+
+    if (refLabelEnd >= 0) {
+      label = state.src.slice(start, refLabelEnd);
+      currentPos = refLabelEnd + 1;
+    } else {
+      currentPos = labelEnd + 1;
+    }
+  } else {
+    currentPos = labelEnd + 1;
+  }
+
+  // Use alt text as label if no explicit label provided
+  if (!label) {
+    label = state.src.slice(labelStart, labelEnd);
+  }
+
+  // Normalize and lookup reference
+  const normalizedLabel = md.utils.normalizeReference(label);
+  const ref = state.env.references[normalizedLabel];
+
+  if (!ref) return null;
+
+  return {
+    href: ref.href,
+    title: ref.title || "",
+    renderWidth: null,
+    renderHeight: null,
+  };
+}
+
+/**
+ * Enhanced image parser with dimension support
+ */
+function axBlurestImageParser(state: StateInline, silent: boolean): boolean {
+  const oldPos = state.pos;
+  const max = state.posMax;
+
+  // Check for image marker: ![
+  if (state.src.charCodeAt(state.pos) !== 0x21 /* ! */) return false;
+  if (state.src.charCodeAt(state.pos + 1) !== 0x5b /* [ */) return false;
+
+  const labelStart = state.pos + 2;
+  const labelEnd = state.md.helpers.parseLinkLabel(state, state.pos + 1, false);
+
+  // Failed to find closing bracket
+  if (labelEnd < 0) return false;
+
+  let pos = labelEnd + 1;
+  let parseResult: ParseResult | null = null;
+
+  // Try parsing as inline link
+  if (pos < max && state.src.charCodeAt(pos) === 0x28 /* ( */) {
+    parseResult = parseInlineLink(state, pos, state.md);
+    if (parseResult) {
+      pos = state.src.indexOf(")", pos) + 1;
+    }
+  } else {
+    // Try parsing as reference link
+    parseResult = parseReferenceLink(
+      state,
+      labelStart,
+      labelEnd,
+      pos,
+      state.md
+    );
+    if (parseResult) {
+      // Update position for reference links
+      if (pos < max && state.src.charCodeAt(pos) === 0x5b /* [ */) {
+        const refEnd = state.md.helpers.parseLinkLabel(state, pos);
+        pos = refEnd >= 0 ? refEnd + 1 : labelEnd + 1;
+      } else {
+        pos = labelEnd + 1;
+      }
+    }
+  }
+
+  if (!parseResult) {
+    state.pos = oldPos;
+    return false;
+  }
+
+  // Create token if not in silent mode
+  if (!silent) {
+    const content = state.src.slice(labelStart, labelEnd);
+
+    // Parse alt text content
+    const childTokens: Token[] = [];
+    state.md.inline.parse(content, state.md, state.env, childTokens);
+
+    // Create image token
+    const token = state.push("image", "img", 0);
+    token.attrs = [
+      ["src", parseResult.href],
+      ["alt", ""],
+    ];
+    token.children = childTokens;
+    token.content = content;
+
+    // Add title attribute if present
+    if (parseResult.title) {
+      token.attrs.push(["title", parseResult.title]);
+    }
+
+    // Store dimensions in token metadata
+    if (parseResult.renderWidth !== null || parseResult.renderHeight !== null) {
+      token.meta = {
+        ...token.meta,
+        renderWidth: parseResult.renderWidth,
+        renderHeight: parseResult.renderHeight,
+      };
+    }
+  }
+
+  state.pos = pos;
+  state.posMax = max;
+  return true;
+}
+
 /**
  * Render a fallback <img> tag.
- * @param src Image source
- * @param alt Alt text
- * @param renderWidth Render width
- * @param renderHeight Render height
- * @param md MarkdownIt instance for escaping
- * @returns HTML string
  */
 function renderFallbackImg(
   src: string,
@@ -40,15 +312,6 @@ function renderFallbackImg(
 
 /**
  * Render the ax-blurest component.
- * @param src Image source
- * @param alt Alt text
- * @param renderWidth Render width
- * @param renderHeight Render height
- * @param blurhash Blurhash string
- * @param srcWidth Original image width
- * @param srcHeight Original image height
- * @param md MarkdownIt instance for escaping
- * @returns HTML string
  */
 function renderAxBlurestComponent(
   src: string,
@@ -71,12 +334,8 @@ function renderAxBlurestComponent(
     ["blurhash", blurhash],
   ];
 
-  if (renderWidth !== null) {
-    axAttrs.push(["render-width", renderWidth]);
-  }
-  if (renderHeight !== null) {
-    axAttrs.push(["render-height", renderHeight]);
-  }
+  if (renderWidth !== null) axAttrs.push(["render-width", renderWidth]);
+  if (renderHeight !== null) axAttrs.push(["render-height", renderHeight]);
 
   const axAttrsString = axAttrs
     .map(([key, value]) => `${key}="${value}"`)
@@ -84,12 +343,8 @@ function renderAxBlurestComponent(
 
   // Build inner <img> tag attributes
   const imgAttrs: string[] = [];
-  if (renderWidth !== null) {
-    imgAttrs.push(`width="${renderWidth}"`);
-  }
-  if (renderHeight !== null) {
-    imgAttrs.push(`height="${renderHeight}"`);
-  }
+  if (renderWidth !== null) imgAttrs.push(`width="${renderWidth}"`);
+  if (renderHeight !== null) imgAttrs.push(`height="${renderHeight}"`);
 
   const imgTag = `<img ${imgAttrs.join(
     " "
@@ -116,180 +371,10 @@ function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
       return self.renderToken(tokens, idx, options);
     };
 
-  const axBlurestImageParser = (
-    state: StateInline,
-    silent: boolean
-  ): boolean => {
-    // This is a fork of the original markdown-it image rule, with modifications
-    // to parse `=WIDTHxHEIGHT` dimension attributes.
-
-    let attrs,
-      code,
-      label,
-      labelEnd,
-      labelStart,
-      pos,
-      ref,
-      res,
-      title,
-      token,
-      start,
-      href = "",
-      oldPos = state.pos,
-      max = state.posMax;
-
-    // Check for image start: !
-    if (state.src.charCodeAt(state.pos) !== 0x21 /* ! */) {
-      return false;
-    }
-    // Check for link open: [
-    if (state.src.charCodeAt(state.pos + 1) !== 0x5b /* [ */) {
-      return false;
-    }
-
-    labelStart = state.pos + 2;
-    labelEnd = md.helpers.parseLinkLabel(state, state.pos + 1, false);
-
-    // Parser failed to find ']', so it's not a valid link
-    if (labelEnd < 0) {
-      return false;
-    }
-
-    pos = labelEnd + 1;
-    // Check for (
-    if (pos < max && state.src.charCodeAt(pos) === 0x28 /* ( */) {
-      //
-      // Inline link
-      //
-
-      pos++;
-
-      // Skip spaces
-      for (; pos < max; pos++) {
-        code = state.src.charCodeAt(pos);
-        if (!md.utils.isSpace(code) && code !== 0x0a) {
-          break;
-        }
-      }
-      if (pos >= max) {
-        return false;
-      }
-
-      // Parse link destination
-      start = pos;
-      res = md.helpers.parseLinkDestination(state.src, pos, state.posMax);
-      if (res.ok) {
-        href = md.normalizeLink(res.str);
-        if (md.validateLink(href)) {
-          pos = res.pos;
-        } else {
-          href = "";
-        }
-      }
-
-      // Skip spaces
-      start = pos;
-      for (; pos < max; pos++) {
-        code = state.src.charCodeAt(pos);
-        if (!md.utils.isSpace(code) && code !== 0x0a) {
-          break;
-        }
-      }
-
-      // Parse link title
-      res = md.helpers.parseLinkTitle(state.src, pos, state.posMax);
-      if (pos < max && start !== pos && res.ok) {
-        title = res.str;
-        pos = res.pos;
-        // Skip spaces
-        for (; pos < max; pos++) {
-          code = state.src.charCodeAt(pos);
-          if (!md.utils.isSpace(code) && code !== 0x0a) {
-            break;
-          }
-        }
-      } else {
-        title = "";
-      }
-
-      let renderWidth = null;
-      let renderHeight = null;
-      // Regex to parse `=WxH`, `=Wx`, or `=xH`
-      const dimMatch = state.src.slice(pos).match(/^\s*=\s*([0-9]*)x([0-9]*)/);
-
-      if (dimMatch) {
-        const widthStr = dimMatch[1];
-        const heightStr = dimMatch[2];
-        if (widthStr || heightStr) {
-          if (widthStr) renderWidth = parseInt(widthStr, 10);
-          if (heightStr) renderHeight = parseInt(heightStr, 10);
-          // Advance the parser position
-          pos += dimMatch[0].length;
-
-          // Skip spaces after dimensions
-          for (; pos < max; pos++) {
-            code = state.src.charCodeAt(pos);
-            if (!md.utils.isSpace(code) && code !== 0x0a) {
-              break;
-            }
-          }
-        }
-      }
-
-      // Check for closing )
-      if (pos >= max || state.src.charCodeAt(pos) !== 0x29 /* ) */) {
-        state.pos = oldPos;
-        return false;
-      }
-      pos++;
-
-      // We found the end of the link, and know for a fact it's a valid link;
-      // so all that's left to do is to call tokenizer.
-      //
-      if (!silent) {
-        state.pos = labelStart;
-        state.posMax = labelEnd;
-
-        token = state.push("image", "img", 0);
-        token.attrs = [
-          ["src", href],
-          ["alt", ""],
-        ];
-
-        const childrenTokens: Token[] = [];
-        state.md.inline.parse(
-          state.src.slice(labelStart, labelEnd),
-          state.md,
-          state.env,
-          childrenTokens
-        );
-        token.children = childrenTokens;
-
-        if (title) {
-          token.attrs.push(["title", title]);
-        }
-
-        if (renderWidth !== null || renderHeight !== null) {
-          token.meta = { ...token.meta, renderWidth, renderHeight };
-        }
-      }
-
-      state.pos = pos;
-      state.posMax = max;
-      return true;
-    }
-
-    //
-    // Link reference not implemented for this custom parser for simplicity.
-    // If you need it, you would copy the logic from markdown-it's default image parser.
-    //
-    return false;
-  };
-
-  // Replace the default 'image' rule with our new custom one.
+  // Replace the default 'image' rule with our enhanced parser
   md.inline.ruler.at("image", axBlurestImageParser);
 
-  // Override image renderer (This part is now correct because the parser provides the meta)
+  // Override image renderer
   md.renderer.rules.image = (
     tokens: Token[],
     idx: number,
@@ -310,24 +395,17 @@ function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
       return defaultImageRenderer(tokens, idx, mdOptions, env, self);
     }
 
-    // Read dimensions from the token's metadata, populated by our custom parser.
+    // Get dimensions from token metadata
     const renderWidth = token.meta?.renderWidth ?? null;
     const renderHeight = token.meta?.renderHeight ?? null;
 
-    // The srcAttr is already clean, no need to parse dimensions from it here.
+    // Clean the source URL
     const { cleanSrc } = parseImageSrc(srcAttr);
-
-    console.log("Correctly parsed with custom parser:", {
-      originalSrc: srcAttr,
-      cleanSrc,
-      renderWidth,
-      renderHeight,
-    });
 
     const result = core.processImage(cleanSrc);
 
     if (!result) {
-      // Use fallback <img> tag for skipped files (e.g. network URLs)
+      // Use fallback <img> tag for skipped files
       return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
     }
 
@@ -353,7 +431,7 @@ function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
     );
   };
 
-  // Store core instance for potential cleanup
+  // Store core instance for cleanup
   (md as any).__axBlurestCore = core;
 }
 
