@@ -122,6 +122,15 @@
                 margin: 15px 0;
             }
 
+            #event-monitoring-section {
+                position: -webkit-sticky; /* For Safari */
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+                /* Add a more prominent shadow when it sticks to indicate elevation */
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+
             .event-log {
                 background: #2c3e50;
                 color: #ecf0f1;
@@ -132,6 +141,18 @@
                 font-family: monospace;
                 font-size: 12px;
                 margin: 10px 0;
+                transition: background-color 0.3s;
+            }
+
+            .log-entry {
+                margin-bottom: 4px;
+                line-height: 1.4;
+            }
+            .log-entry.success {
+                color: #2ecc71; /* Green for success */
+            }
+            .log-entry.error {
+                color: #e74c3c; /* Red for error */
             }
 
             .controls {
@@ -146,6 +167,7 @@
                 border-radius: 4px;
                 cursor: pointer;
                 margin-right: 10px;
+                transition: background-color 0.2s;
             }
 
             .controls button:hover {
@@ -277,13 +299,13 @@
 
         <div class="section">
             <h2>Basic Usage</h2>
-            <pre><code>&lt;ax-blurest
+            <pre><code><ax-blurest
     src="https://picsum.photos/800/600"
     src-width="800"
     src-height="600"
     blurhash="LGF5?]00~q%M-;%M%M9Fxu-;tRof"
-    alt="Sample image"&gt;
-&lt;/ax-blurest&gt;</code></pre>
+    alt="Sample image">
+</ax-blurest></code></pre>
 
             <div class="note">
                 <strong>Note:</strong> For this documentation, we're using placeholder BlurHash strings and simulated
@@ -305,9 +327,7 @@
                             src-height="300"
                             blurhash="LGF5?]00~q%M-;%M%M9Fxu-;tRof"
                             alt="Landscape image"
-                        >
-                            <p></p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
 
@@ -320,9 +340,7 @@
                             src-height="400"
                             blurhash="L6PZfSjE.AyE_3t7t7R**0o#DgR4"
                             alt="Portrait image"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
 
@@ -335,9 +353,7 @@
                             src-height="400"
                             blurhash="LEHV6nWB2yk8pyoJadR*xvt7t7WB"
                             alt="Square image"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
             </div>
@@ -354,9 +370,7 @@
                             blurhash="LKN]Rv%2Tw=w_4%M%M-;%LwY@-P*"
                             debug
                             alt="Debug mode image"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
 
@@ -371,9 +385,7 @@
                             debug
                             debug-delay="5000"
                             alt="Debug mode with custom delay"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
             </div>
@@ -390,9 +402,7 @@
                             blurhash="LLGu[]%2DNXI*0i_M{V@_3NatRt7"
                             block
                             alt="Block display"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
 
@@ -406,9 +416,7 @@
                             blurhash="L9AS}j~qVs%M~qxvV@t8%MtRD%of"
                             render-width="200"
                             alt="Fixed width image"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
             </div>
@@ -425,18 +433,14 @@
                             blurhash="LEHV6nWB2yk8pyoJadR*xvt7t7WB"
                             debug
                             alt="Broken image"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
 
                 <div class="demo-item">
                     <div class="demo-label">Missing Required Attributes</div>
                     <div class="demo-content">
-                        <ax-blurest src="https://picsum.photos/400/300?random=8" alt="Missing attributes">
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        <ax-blurest src="https://picsum.photos/400/300?random=8" alt="Missing attributes"></ax-blurest>
                         <p>
                             <small
                                 >This component will not render because it's missing required attributes (src-width,
@@ -457,18 +461,16 @@
                             src-height="300"
                             blurhash="LKN]Rv%2Tw=w_4%M%M-;%LwY@-P*"
                             alt="BlurHash only"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                         <p><small>No src attribute - shows only BlurHash placeholder</small></p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="section">
+        <div class="section" id="event-monitoring-section">
             <h2>Event Monitoring</h2>
-            <p>Monitor image loading events in real-time:</p>
+            <p>Monitor image loading events in real-time. This panel will stick to the top as you scroll.</p>
 
             <div class="controls">
                 <button onclick="clearEventLog()">Clear Log</button>
@@ -478,8 +480,8 @@
             <div class="event-log" id="eventLog">Event log will appear here...</div>
 
             <h3>Test Images for Event Monitoring</h3>
-            <div style="height: 500px; margin: 20px 0">
-                <p>Scroll down to trigger lazy loading...</p>
+            <div style="height: 500px; margin: 20px 0; border: 2px dashed #ccc; padding: 10px; border-radius: 8px">
+                <p>Scroll down to trigger lazy loading of the images below...</p>
             </div>
 
             <div class="demo-grid">
@@ -494,9 +496,7 @@
                             debug
                             id="lazy1"
                             alt="Lazy load test 1"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
 
@@ -511,9 +511,7 @@
                             debug
                             id="lazy2"
                             alt="Lazy load test 2"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
 
@@ -528,9 +526,7 @@
                             debug
                             id="lazy3"
                             alt="Lazy load error test"
-                        >
-                            <p>NOT SUPPORTED</p>
-                        </ax-blurest>
+                        ></ax-blurest>
                     </div>
                 </div>
             </div>
@@ -549,7 +545,7 @@
 
             <h3>BlurHash Integration</h3>
             <ul>
-                <li>Requires BlurhashCssConverter and BlurhashUtils imports</li>
+                <li>Requires `BlurhashCssConverter` and `BlurhashUtils` imports</li>
                 <li>Validates BlurHash strings before processing</li>
                 <li>Fallback to gradient placeholder for invalid BlurHash</li>
                 <li>Configurable blur radius and scaling options</li>
@@ -563,5 +559,62 @@
                 <li>Configurable delay for testing loading states</li>
             </ul>
         </div>
+
+        <script>
+            const eventLogEl = document.getElementById('eventLog');
+            let isLogPristine = true;
+
+            /**
+             * Appends a new message to the event log.
+             * @param {string} message - The message to log.
+             * @param {'success' | 'error' | 'info'} type - The type of the log entry.
+             */
+            function logEvent(message, type = 'info') {
+                if (isLogPristine) {
+                    eventLogEl.innerHTML = '';
+                    isLogPristine = false;
+                }
+
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+
+                // Truncate long URLs for better readability
+                const shortMessage = message.length > 80 ? message.substring(0, 77) + '...' : message;
+
+                entry.textContent = `[${timestamp}] [${type.toUpperCase()}] ${shortMessage}`;
+
+                eventLogEl.appendChild(entry);
+                // Auto-scroll to the latest log entry
+                eventLogEl.scrollTop = eventLogEl.scrollHeight;
+            }
+
+            function clearEventLog() {
+                eventLogEl.innerHTML = 'Event log has been cleared.';
+                isLogPristine = true; // Reset the pristine state
+            }
+
+            function scrollImages() {
+                const firstLazyImage = document.getElementById('lazy1');
+                if (firstLazyImage) {
+                    firstLazyImage.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center', // Scrolls the element to the center of the view
+                    });
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.addEventListener('image-loaded', (e) => {
+                    logEvent(`Loaded: ${e.detail.src}`, 'success');
+                });
+
+                document.body.addEventListener('image-error', (e) => {
+                    logEvent(`Error: ${e.detail.src}`, 'error');
+                });
+
+                logEvent('Event listeners attached. Scroll down to see lazy loading in action.');
+            });
+        </script>
     </body>
 </html>

@@ -319,6 +319,8 @@ export class AxBlurest extends HTMLElement {
             this.dispatchEvent(
                 new CustomEvent('image-loaded', {
                     detail: { src },
+                    bubbles: true,
+                    composed: true,
                 })
             );
 
