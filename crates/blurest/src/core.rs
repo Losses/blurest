@@ -22,6 +22,13 @@ pub struct AppContext {
     pub project_root: PathBuf,
 }
 
+#[derive(Debug)]
+pub struct BlurhashData {
+    pub blurhash: String,
+    pub width: i32,
+    pub height: i32,
+}
+
 /// SQL migrations for creating the blurhash cache table and triggers
 const MIGRATIONS_SQL: &str = r#"
 CREATE TABLE blurhash_cache (
@@ -30,6 +37,8 @@ CREATE TABLE blurhash_cache (
     xxhash TEXT NOT NULL,
     mtime_ms BIGINT NOT NULL,
     blurhash TEXT NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -48,11 +57,8 @@ pub fn initialize_and_connect_db(database_url: &str) -> Result<SqliteConnection>
     let db_path = Path::new(database_url);
     let db_exists = db_path.exists();
 
-    let mut conn = SqliteConnection::establish(database_url).with_context(|| {
-        format!(
-            "Error connecting to or creating database at {database_url}"
-        )
-    })?;
+    let mut conn = SqliteConnection::establish(database_url)
+        .with_context(|| format!("Error connecting to or creating database at {database_url}"))?;
 
     if !db_exists {
         info!("Database file not found, creating and running migrations");
@@ -83,9 +89,11 @@ fn time_to_ms(time: SystemTime) -> Result<i64> {
 /// * `image_path` - Path to the image file
 ///
 /// # Returns
-/// * `Result<String>` - The blurhash string or an error
-pub fn get_blurhash_with_cache(context: &mut AppContext, image_path: &Path) -> Result<String> {
-    // Resolve absolute path and calculate relative key
+/// * `Result<BlurhashData>` - A struct containing the blurhash string, width, and height, or an error
+pub fn get_blurhash_with_cache(
+    context: &mut AppContext,
+    image_path: &Path,
+) -> Result<BlurhashData> {
     let absolute_path = fs::canonicalize(image_path)
         .with_context(|| format!("Failed to find file at: {image_path:?}"))?;
 
@@ -99,78 +107,91 @@ pub fn get_blurhash_with_cache(context: &mut AppContext, image_path: &Path) -> R
     let metadata = fs::metadata(&absolute_path)?;
     let current_mtime_ms = time_to_ms(metadata.modified()?)?;
 
-    // Query database for cached entry
     let cached_entry = blurhash_cache::table
         .filter(blurhash_cache::relative_path.eq(&relative_key))
         .select(BlurhashCache::as_select())
         .first::<BlurhashCache>(&mut context.db_conn)
         .optional()?;
 
-    // Intelligent caching logic
     if let Some(cache) = cached_entry {
-        // Fast path: modification time matches
         if current_mtime_ms == cache.mtime_ms {
             debug!("Cache hit: mtime match for {relative_key}");
-            return Ok(cache.blurhash);
+            return Ok(BlurhashData {
+                blurhash: cache.blurhash,
+                width: cache.width,
+                height: cache.height,
+            });
         }
 
-        // Slower path: verify content hasn't changed using hash
         let file_bytes = fs::read(&absolute_path)?;
         let current_xxhash_val = xxh3_64(&file_bytes);
         let current_xxhash_str = hex::encode(current_xxhash_val.to_be_bytes());
 
         if current_xxhash_str == cache.xxhash {
-            debug!(
-                "Cache hit: content unchanged, updating mtime for {relative_key}"
-            );
+            debug!("Cache hit: content unchanged, updating mtime for {relative_key}");
             diesel::update(&cache)
                 .set(blurhash_cache::mtime_ms.eq(current_mtime_ms))
                 .execute(&mut context.db_conn)?;
-            return Ok(cache.blurhash);
+            return Ok(BlurhashData {
+                blurhash: cache.blurhash,
+                width: cache.width,
+                height: cache.height,
+            });
         }
 
-        // Content has changed, recalculate blurhash
         warn!("Cache stale: content changed for {relative_key}");
-        let (new_blurhash, _) = calculate_blurhash_and_hash(&file_bytes)?;
+        let (new_blurhash, _, new_width, new_height) = calculate_blurhash_and_hash(&file_bytes)?;
 
         diesel::update(&cache)
             .set((
                 blurhash_cache::xxhash.eq(current_xxhash_str),
                 blurhash_cache::mtime_ms.eq(current_mtime_ms),
                 blurhash_cache::blurhash.eq(&new_blurhash),
+                blurhash_cache::width.eq(new_width as i32),
+                blurhash_cache::height.eq(new_height as i32),
             ))
             .execute(&mut context.db_conn)?;
 
-        return Ok(new_blurhash);
+        return Ok(BlurhashData {
+            blurhash: new_blurhash,
+            width: new_width as i32,
+            height: new_height as i32,
+        });
     }
 
-    // Cache miss: new file
     info!("Cache miss: new file {relative_key}");
     let file_bytes = fs::read(&absolute_path)?;
-    let (new_blurhash, new_xxhash_str) = calculate_blurhash_and_hash(&file_bytes)?;
+    let (new_blurhash, new_xxhash_str, new_width, new_height) =
+        calculate_blurhash_and_hash(&file_bytes)?;
 
     let new_cache_entry = NewBlurhashCache {
         relative_path: &relative_key,
         xxhash: &new_xxhash_str,
         mtime_ms: current_mtime_ms,
         blurhash: &new_blurhash,
+        width: new_width as i32,
+        height: new_height as i32,
     };
 
     diesel::insert_into(blurhash_cache::table)
         .values(&new_cache_entry)
         .execute(&mut context.db_conn)?;
 
-    Ok(new_blurhash)
+    Ok(BlurhashData {
+        blurhash: new_blurhash,
+        width: new_width as i32,
+        height: new_height as i32,
+    })
 }
 
-/// Helper function that encapsulates blurhash and xxhash calculation logic
+/// Helper function that encapsulates blurhash, xxhash, and dimension calculation logic
 ///
 /// # Arguments
 /// * `file_bytes` - Raw image file bytes
 ///
 /// # Returns
-/// * `Result<(String, String)>` - Tuple of (blurhash, xxhash_hex) or error
-fn calculate_blurhash_and_hash(file_bytes: &[u8]) -> Result<(String, String)> {
+/// * `Result<(String, String, u32, u32)>` - Tuple of (blurhash, xxhash_hex, width, height) or error
+fn calculate_blurhash_and_hash(file_bytes: &[u8]) -> Result<(String, String, u32, u32)> {
     let hash_val = xxh3_64(file_bytes);
     let hash_str = hex::encode(hash_val.to_be_bytes());
 
@@ -180,5 +201,5 @@ fn calculate_blurhash_and_hash(file_bytes: &[u8]) -> Result<(String, String)> {
 
     let blurhash_str = encode(4, 3, width, height, &rgba_data)?;
 
-    Ok((blurhash_str, hash_str))
+    Ok((blurhash_str, hash_str, width, height))
 }

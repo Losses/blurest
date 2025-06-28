@@ -5,6 +5,8 @@ diesel::table! {
         xxhash -> Text,
         mtime_ms -> BigInt,
         blurhash -> Text,
+        width -> Integer,
+        height -> Integer,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }

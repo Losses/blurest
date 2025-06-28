@@ -3,6 +3,7 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
+use crate::schema::blurhash_cache;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 
@@ -15,6 +16,8 @@ pub struct BlurhashCache {
     pub xxhash: String,
     pub mtime_ms: i64,
     pub blurhash: String,
+    pub width: i32,
+    pub height: i32,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -26,4 +29,6 @@ pub struct NewBlurhashCache<'a> {
     pub xxhash: &'a str,
     pub mtime_ms: i64,
     pub blurhash: &'a str,
+    pub width: i32,
+    pub height: i32,
 }

@@ -143,10 +143,10 @@ fn initialize_blurhash_cache(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     Ok(cx.boolean(true))
 }
 
-/// Generates or retrieves a cached blurhash for the specified image.
+/// Generates or retrieves a cached blurhash, width, and height for the specified image.
 ///
-/// Attempts to retrieve a cached blurhash from the database first. If not found,
-/// generates a new blurhash, caches it, and returns the result.
+/// Attempts to retrieve cached data from the database first. If not found,
+/// generates new data, caches it, and returns the result.
 ///
 /// # Arguments
 ///
@@ -157,16 +157,9 @@ fn initialize_blurhash_cache(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 /// * `JsObject` with fields:
 ///   - `success: boolean` - Whether the operation succeeded
 ///   - `blurhash: string` - The blurhash string (only present on success)
+///   - `width: number` - The image width in pixels (only present on success)
+///   - `height: number` - The image height in pixels (only present on success)
 ///   - `error: string` - Error message (only present on failure)
-///
-/// # Errors
-///
-/// Returns error object for:
-/// - Uninitialized context (call `initialize_blurhash_cache` first)
-/// - Invalid image paths
-/// - Image processing failures
-/// - Database access errors
-/// - Mutex poisoning
 ///
 /// # Example
 ///
@@ -174,6 +167,7 @@ fn initialize_blurhash_cache(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 /// const result = get_blurhash('assets/images/hero.jpg');
 /// if (result.success) {
 ///   console.log(`Blurhash: ${result.blurhash}`);
+///   console.log(`Dimensions: ${result.width}x${result.height}`);
 /// } else {
 ///   console.error(`Failed: ${result.error}`);
 /// }
@@ -221,11 +215,16 @@ fn get_blurhash(mut cx: FunctionContext) -> JsResult<JsObject> {
     let result = get_blurhash_with_cache(context, path);
     let obj = cx.empty_object();
     match result {
-        Ok(blurhash) => {
+        Ok(data) => {
             let success = cx.boolean(true);
-            let hash_value = cx.string(blurhash);
+            let hash_value = cx.string(data.blurhash);
+            let width_value = cx.number(data.width);
+            let height_value = cx.number(data.height);
+
             obj.set(&mut cx, "success", success)?;
             obj.set(&mut cx, "blurhash", hash_value)?;
+            obj.set(&mut cx, "width", width_value)?;
+            obj.set(&mut cx, "height", height_value)?;
         }
         Err(e) => {
             let success = cx.boolean(false);
