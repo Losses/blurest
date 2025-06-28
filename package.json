@@ -46,10 +46,12 @@
     "@neon-rs/cli": "^0.1.82",
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.11.16",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@types/markdown-it": "^14.1.2"
   },
   "dependencies": {
-    "@neon-rs/load": "^0.1.82"
+    "@neon-rs/load": "^0.1.82",
+    "markdown-it": "^14.1.0"
   },
   "optionalDependencies": {
     "@fuuck/blurest-win32-x64-msvc": "0.1.0",
