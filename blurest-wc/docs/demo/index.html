@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AxBlurest WebComponent Documentation</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #f8f9fa;
+            }
+
+            .header {
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                margin-bottom: 30px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            h1 {
+                margin: 0 0 10px 0;
+                color: #2c3e50;
+            }
+
+            .description {
+                color: #666;
+                font-size: 18px;
+            }
+
+            .section {
+                background: white;
+                padding: 30px;
+                margin-bottom: 30px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            h2 {
+                margin-top: 0;
+                color: #2c3e50;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 10px;
+            }
+
+            h3 {
+                color: #34495e;
+                margin-top: 30px;
+            }
+
+            pre {
+                background: #f4f4f4;
+                padding: 15px;
+                border-radius: 4px;
+                overflow-x: auto;
+                border-left: 4px solid #3498db;
+            }
+
+            code {
+                background: #f4f4f4;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: 'Monaco', 'Consolas', monospace;
+            }
+
+            .demo-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 20px;
+                margin: 20px 0;
+            }
+
+            .demo-item {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+
+            .demo-label {
+                background: #34495e;
+                color: white;
+                padding: 10px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .demo-content {
+                padding: 20px;
+                background: white;
+            }
+
+            .attribute-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+            }
+
+            .attribute-table th,
+            .attribute-table td {
+                border: 1px solid #ddd;
+                padding: 12px;
+                text-align: left;
+            }
+
+            .attribute-table th {
+                background: #f8f9fa;
+                font-weight: 600;
+            }
+
+            .attribute-table code {
+                font-size: 12px;
+            }
+
+            .note {
+                background: #e8f4fd;
+                border-left: 4px solid #3498db;
+                padding: 15px;
+                margin: 15px 0;
+            }
+
+            .event-log {
+                background: #2c3e50;
+                color: #ecf0f1;
+                padding: 15px;
+                border-radius: 4px;
+                height: 150px;
+                overflow-y: auto;
+                font-family: monospace;
+                font-size: 12px;
+                margin: 10px 0;
+            }
+
+            .controls {
+                margin: 20px 0;
+            }
+
+            .controls button {
+                background: #3498db;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-right: 10px;
+            }
+
+            .controls button:hover {
+                background: #2980b9;
+            }
+        </style>
+
+        <script src="../../build/main.js"></script>
+        <script>
+            AxBlurest.register();
+        </script>
+    </head>
+    <body>
+        <div class="header">
+            <h1>AxBlurest WebComponent</h1>
+            <p class="description">
+                A lazy-loading image component with BlurHash placeholder support, intersection observer optimization,
+                and debug capabilities.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>Overview</h2>
+            <p>
+                AxBlurest is a custom HTML element that provides progressive image loading with BlurHash placeholders.
+                It uses Intersection Observer for optimal performance, only loading images when they enter the viewport.
+            </p>
+
+            <h3>Key Features</h3>
+            <ul>
+                <li>Lazy loading with Intersection Observer</li>
+                <li>BlurHash placeholder rendering</li>
+                <li>Debug mode with visual indicators</li>
+                <li>Configurable loading delays</li>
+                <li>Custom events for load states</li>
+                <li>Responsive aspect ratio handling</li>
+                <li>Multiple display mode support</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Attributes</h2>
+            <table class="attribute-table">
+                <thead>
+                    <tr>
+                        <th>Attribute</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>src</code></td>
+                        <td>string</td>
+                        <td>No</td>
+                        <td>Image URL to load when in viewport</td>
+                    </tr>
+                    <tr>
+                        <td><code>src-width</code></td>
+                        <td>number</td>
+                        <td>Yes</td>
+                        <td>Original image width (for aspect ratio)</td>
+                    </tr>
+                    <tr>
+                        <td><code>src-height</code></td>
+                        <td>number</td>
+                        <td>Yes</td>
+                        <td>Original image height (for aspect ratio)</td>
+                    </tr>
+                    <tr>
+                        <td><code>blurhash</code></td>
+                        <td>string</td>
+                        <td>Yes</td>
+                        <td>BlurHash string for placeholder</td>
+                    </tr>
+                    <tr>
+                        <td><code>render-width</code></td>
+                        <td>number</td>
+                        <td>No</td>
+                        <td>Fixed width in pixels (default: 100%)</td>
+                    </tr>
+                    <tr>
+                        <td><code>alt</code></td>
+                        <td>string</td>
+                        <td>No</td>
+                        <td>Alternative text for accessibility</td>
+                    </tr>
+                    <tr>
+                        <td><code>debug</code></td>
+                        <td>boolean</td>
+                        <td>No</td>
+                        <td>Enable debug mode with visual indicators</td>
+                    </tr>
+                    <tr>
+                        <td><code>debug-delay</code></td>
+                        <td>number</td>
+                        <td>No</td>
+                        <td>Debug mode loading delay in ms (default: 3000)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Events</h2>
+            <table class="attribute-table">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Detail</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>image-loaded</code></td>
+                        <td><code>{ src: string }</code></td>
+                        <td>Fired when image loads successfully</td>
+                    </tr>
+                    <tr>
+                        <td><code>image-error</code></td>
+                        <td><code>{ src: string }</code></td>
+                        <td>Fired when image fails to load</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Basic Usage</h2>
+            <pre><code>&lt;ax-blurest
+    src="https://picsum.photos/800/600"
+    src-width="800"
+    src-height="600"
+    blurhash="LGF5?]00~q%M-;%M%M9Fxu-;tRof"
+    alt="Sample image"&gt;
+&lt;/ax-blurest&gt;</code></pre>
+
+            <div class="note">
+                <strong>Note:</strong> For this documentation, we're using placeholder BlurHash strings and simulated
+                images. In real usage, you'd generate BlurHash values from your actual images.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Demonstrations</h2>
+
+            <h3>Basic Image Loading</h3>
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <div class="demo-label">Standard Loading</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/300?random=1"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="LGF5?]00~q%M-;%M%M9Fxu-;tRof"
+                            alt="Landscape image"
+                        >
+                            <p></p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <div class="demo-label">Portrait Aspect Ratio</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/300/400?random=2"
+                            src-width="300"
+                            src-height="400"
+                            blurhash="L6PZfSjE.AyE_3t7t7R**0o#DgR4"
+                            alt="Portrait image"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <div class="demo-label">Square Aspect Ratio</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/400?random=3"
+                            src-width="400"
+                            src-height="400"
+                            blurhash="LEHV6nWB2yk8pyoJadR*xvt7t7WB"
+                            alt="Square image"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Debug Mode</h3>
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <div class="demo-label">Debug Mode (3s delay)</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/300?random=4"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="LKN]Rv%2Tw=w_4%M%M-;%LwY@-P*"
+                            debug
+                            alt="Debug mode image"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <div class="demo-label">Debug Mode (5s delay)</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/300?random=5"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="L5H2EC=PM+yV_3t8M_%M-ASP~q%2"
+                            debug
+                            debug-delay="5000"
+                            alt="Debug mode with custom delay"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Display Modes</h3>
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <div class="demo-label">Block Display</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/200?random=6"
+                            src-width="400"
+                            src-height="200"
+                            blurhash="LLGu[]%2DNXI*0i_M{V@_3NatRt7"
+                            block
+                            alt="Block display"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <div class="demo-label">Fixed Width (200px)</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/300?random=7"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="L9AS}j~qVs%M~qxvV@t8%MtRD%of"
+                            render-width="200"
+                            alt="Fixed width image"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Error Handling</h3>
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <div class="demo-label">Broken Image URL</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://invalid-url.example/nonexistent.jpg"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="LEHV6nWB2yk8pyoJadR*xvt7t7WB"
+                            debug
+                            alt="Broken image"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <div class="demo-label">Missing Required Attributes</div>
+                    <div class="demo-content">
+                        <ax-blurest src="https://picsum.photos/400/300?random=8" alt="Missing attributes">
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                        <p>
+                            <small
+                                >This component will not render because it's missing required attributes (src-width,
+                                src-height, blurhash)</small
+                            >
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>BlurHash Only (No Image)</h3>
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <div class="demo-label">BlurHash Placeholder Only</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src-width="400"
+                            src-height="300"
+                            blurhash="LKN]Rv%2Tw=w_4%M%M-;%LwY@-P*"
+                            alt="BlurHash only"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                        <p><small>No src attribute - shows only BlurHash placeholder</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Event Monitoring</h2>
+            <p>Monitor image loading events in real-time:</p>
+
+            <div class="controls">
+                <button onclick="clearEventLog()">Clear Log</button>
+                <button onclick="scrollImages()">Scroll to Load More Images</button>
+            </div>
+
+            <div class="event-log" id="eventLog">Event log will appear here...</div>
+
+            <h3>Test Images for Event Monitoring</h3>
+            <div style="height: 500px; margin: 20px 0">
+                <p>Scroll down to trigger lazy loading...</p>
+            </div>
+
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <div class="demo-label">Lazy Load Test 1</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/300?random=10"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="LGF5?]00~q%M-;%M%M9Fxu-;tRof"
+                            debug
+                            id="lazy1"
+                            alt="Lazy load test 1"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <div class="demo-label">Lazy Load Test 2</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://picsum.photos/400/300?random=11"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="L6PZfSjE.AyE_3t7t7R**0o#DgR4"
+                            debug
+                            id="lazy2"
+                            alt="Lazy load test 2"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <div class="demo-label">Lazy Load Test 3 (Error)</div>
+                    <div class="demo-content">
+                        <ax-blurest
+                            src="https://invalid-url.example/error.jpg"
+                            src-width="400"
+                            src-height="300"
+                            blurhash="LEHV6nWB2yk8pyoJadR*xvt7t7WB"
+                            debug
+                            id="lazy3"
+                            alt="Lazy load error test"
+                        >
+                            <p>NOT SUPPORTED</p>
+                        </ax-blurest>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Implementation Notes</h2>
+
+            <h3>Performance Considerations</h3>
+            <ul>
+                <li>Uses Intersection Observer for efficient viewport detection</li>
+                <li>Threshold of 0.1 with 50px root margin for optimal loading timing</li>
+                <li>Automatic cleanup of observers when elements are removed</li>
+                <li>Cancellation of pending loads when elements leave viewport</li>
+            </ul>
+
+            <h3>BlurHash Integration</h3>
+            <ul>
+                <li>Requires BlurhashCssConverter and BlurhashUtils imports</li>
+                <li>Validates BlurHash strings before processing</li>
+                <li>Fallback to gradient placeholder for invalid BlurHash</li>
+                <li>Configurable blur radius and scaling options</li>
+            </ul>
+
+            <h3>Debug Features</h3>
+            <ul>
+                <li>Visual "DEBUG MODE" indicator in top-left corner</li>
+                <li>Loading indicator with pulse animation</li>
+                <li>Console logging for viewport entry/exit and load events</li>
+                <li>Configurable delay for testing loading states</li>
+            </ul>
+        </div>
+    </body>
+</html>
