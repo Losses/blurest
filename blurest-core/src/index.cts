@@ -1,14 +1,12 @@
-import type MarkdownIt from "markdown-it";
-import type { Token, Renderer } from "markdown-it";
 import path from "node:path";
 import fs from "node:fs";
 
 import * as addon from "./load.cjs";
 
 /**
- * Plugin options for initializing the Blurhash cache module.
+ * Core plugin options for initializing the Blurhash cache module.
  */
-interface AxBlurestPluginOptions {
+export interface BlurhashCoreOptions {
   /**
    * Database connection string
    */
@@ -24,7 +22,7 @@ interface AxBlurestPluginOptions {
 /**
  * Success result type for `get_blurhash` function.
  */
-interface BlurhashSuccessResult {
+export interface BlurhashSuccessResult {
   success: true;
   blurhash: string;
   width: number;
@@ -34,7 +32,7 @@ interface BlurhashSuccessResult {
 /**
  * Error result type for `get_blurhash` function.
  */
-interface BlurhashErrorResult {
+export interface BlurhashErrorResult {
   success: false;
   error: string;
 }
@@ -42,12 +40,12 @@ interface BlurhashErrorResult {
 /**
  * Union return type for `get_blurhash` function.
  */
-type BlurhashResult = BlurhashSuccessResult | BlurhashErrorResult;
+export type BlurhashResult = BlurhashSuccessResult | BlurhashErrorResult;
 
 /**
  * Parsed image source information.
  */
-interface ParsedImageSource {
+export interface ParsedImageSource {
   /** Cleaned image path (with size definitions removed) */
   cleanSrc: string;
   /** User-specified render width */
@@ -59,7 +57,7 @@ interface ParsedImageSource {
 /**
  * File validation result.
  */
-interface FileValidationResult {
+export interface FileValidationResult {
   /** Whether the file should be processed by the native module */
   shouldProcess: boolean;
   /** Resolved absolute path (only if shouldProcess is true) */
@@ -106,7 +104,7 @@ declare module "./load.cjs" {
  * @param src Image source string
  * @returns true if it's a network URL
  */
-function isNetworkUrl(src: string): boolean {
+export function isNetworkUrl(src: string): boolean {
   return /^https?:\/\//.test(src);
 }
 
@@ -116,7 +114,10 @@ function isNetworkUrl(src: string): boolean {
  * @param projectRoot Project root directory
  * @returns Validation result with processing decision
  */
-function validateFile(src: string, projectRoot: string): FileValidationResult {
+export function validateFile(
+  src: string,
+  projectRoot: string
+): FileValidationResult {
   // Skip network URLs
   if (isNetworkUrl(src)) {
     return {
@@ -184,7 +185,7 @@ function validateFile(src: string, projectRoot: string): FileValidationResult {
  * @param src Original src string from markdown token
  * @returns Object containing cleaned path and render dimensions
  */
-function parseImageSrc(src: string): ParsedImageSource {
+export function parseImageSrc(src: string): ParsedImageSource {
   // Match ' =<width>x<height>' pattern at the end of the string
   const sizeRegex = /\s*=\s*(\d*)x(\d*)\s*$/;
   const match = src.match(sizeRegex);
@@ -221,151 +222,102 @@ function parseImageSrc(src: string): ParsedImageSource {
 }
 
 /**
- * Render a fallback <img> tag.
- * @param src Image source
- * @param alt Alt text
- * @param renderWidth Render width
- * @param renderHeight Render height
- * @param md MarkdownIt instance for escaping
- * @returns HTML string
+ * Core Blurhash processor class
  */
-function renderFallbackImg(
-  src: string,
-  alt: string,
-  renderWidth: number | null,
-  renderHeight: number | null,
-  md: MarkdownIt
-): string {
-  const escapedAlt = md.utils.escapeHtml(alt);
-  const escapedSrc = md.utils.escapeHtml(src);
+export class BlurhashCore {
+  private initialized = false;
+  private options: BlurhashCoreOptions;
 
-  const attrs: string[] = [`src="${escapedSrc}"`, `alt="${escapedAlt}"`];
-  if (renderWidth !== null) attrs.push(`width="${renderWidth}"`);
-  if (renderHeight !== null) attrs.push(`height="${renderHeight}"`);
-
-  return `<img ${attrs.join(" ")}>`;
-}
-
-/**
- * A markdown-it plugin that renders standard image syntax as custom components with blurhash.
- *
- * @param md MarkdownIt instance
- * @param options Plugin configuration options
- */
-function axBlurestPlugin(
-  md: MarkdownIt,
-  options: AxBlurestPluginOptions
-): void {
-  if (!options || !options.databaseUrl || !options.projectRoot) {
-    throw new Error(
-      "[markdown-it-ax-blurest] `databaseUrl` and `projectRoot` options are required."
-    );
+  constructor(options: BlurhashCoreOptions) {
+    this.options = options;
   }
 
-  // Initialize native module
-  try {
-    const initialized = addon.initialize_blurhash_cache(
-      options.databaseUrl,
-      options.projectRoot
-    );
-    if (!initialized) {
-      throw new Error("Native module initialization returned false.");
+  /**
+   * Initialize the Blurhash cache system
+   */
+  initialize(): void {
+    if (!this.options.databaseUrl || !this.options.projectRoot) {
+      throw new Error(
+        "[blurhash-core] `databaseUrl` and `projectRoot` options are required."
+      );
     }
-  } catch (error) {
-    console.error(
-      "[markdown-it-ax-blurest] Failed to initialize native module:",
-      error
-    );
-    throw new Error(
-      `[markdown-it-ax-blurest] Initialization failed. Please check your options and native module setup. Details: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+
+    try {
+      const initialized = addon.initialize_blurhash_cache(
+        this.options.databaseUrl,
+        this.options.projectRoot
+      );
+      if (!initialized) {
+        throw new Error("Native module initialization returned false.");
+      }
+      this.initialized = true;
+    } catch (error) {
+      console.error(
+        "[blurhash-core] Failed to initialize native module:",
+        error
+      );
+      throw new Error(
+        `[blurhash-core] Initialization failed. Please check your options and native module setup. Details: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
-  // Backup default image renderer
-  const defaultImageRenderer =
-    md.renderer.rules.image ||
-    function (tokens, idx, options, env, self) {
-      return self.renderToken(tokens, idx, options);
-    };
+  /**
+   * Check if the core is initialized
+   */
+  isInitialized(): boolean {
+    return this.initialized && addon.is_initialized();
+  }
 
-  // Override image renderer
-  md.renderer.rules.image = (
-    tokens: Token[],
-    idx: number,
-    mdOptions: MarkdownIt.Options,
-    env: unknown,
-    self: Renderer
-  ): string => {
-    const token = tokens[idx];
-    const srcAttr = token.attrGet("src");
-    const alt = self.renderInlineAsText(token.children ?? [], mdOptions, env);
-
-    if (!srcAttr) {
-      return defaultImageRenderer(tokens, idx, mdOptions, env, self);
+  /**
+   * Process an image and get blurhash data
+   * @param src Image source path
+   * @returns Blurhash result or null if processing should be skipped
+   */
+  processImage(src: string): BlurhashResult | null {
+    if (!this.initialized) {
+      throw new Error(
+        "[blurhash-core] Core not initialized. Call initialize() first."
+      );
     }
 
-    // Parse src to get path and render dimensions
-    const { cleanSrc, renderWidth, renderHeight } = parseImageSrc(srcAttr);
+    // Parse src to get clean path
+    const { cleanSrc } = parseImageSrc(src);
 
     // Validate file before processing
-    const validation = validateFile(cleanSrc, options.projectRoot);
+    const validation = validateFile(cleanSrc, this.options.projectRoot);
 
     if (!validation.shouldProcess) {
-      // Use fallback <img> tag for invalid files
       console.debug(
-        `[markdown-it-ax-blurest] Skipping blurhash processing for "${cleanSrc}": ${validation.reason}`
+        `[blurhash-core] Skipping blurhash processing for "${cleanSrc}": ${validation.reason}`
       );
-      return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
+      return null;
     }
 
     // Get blurhash and original dimensions from native module
-    const result = addon.get_blurhash(cleanSrc);
+    return addon.get_blurhash(cleanSrc);
+  }
 
-    const escapedAlt = md.utils.escapeHtml(alt);
-    const escapedSrc = md.utils.escapeHtml(cleanSrc);
-
-    if (!result.success) {
-      console.warn(
-        `[markdown-it-ax-blurest] Failed to get blurhash for "${cleanSrc}": ${result.error}`
-      );
-      // Fallback to standard <img> tag
-      return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
+  /**
+   * Clean up resources
+   */
+  cleanup(): boolean {
+    try {
+      const result = addon.clear_context();
+      this.initialized = false;
+      return result;
+    } catch (error) {
+      console.error("[blurhash-core] Failed to cleanup:", error);
+      return false;
     }
+  }
 
-    const { blurhash, width: srcWidth, height: srcHeight } = result;
-
-    // Build <ax-blurest> component attributes
-    const axAttrs: [string, string | number][] = [
-      ["src-width", srcWidth],
-      ["src-height", srcHeight],
-      ["render-width", renderWidth ?? ""],
-      ["render-height", renderHeight ?? ""],
-      ["alt", escapedAlt],
-      ["src", escapedSrc],
-      ["blurhash", blurhash],
-    ];
-
-    const axAttrsString = axAttrs
-      .map(([key, value]) => `${key}="${value}"`)
-      .join(" ");
-
-    // Build inner <img> tag attributes
-    const imgAttrs: string[] = [];
-    if (renderWidth !== null) {
-      imgAttrs.push(`width="${renderWidth}"`);
-    }
-    if (renderHeight !== null) {
-      imgAttrs.push(`height="${renderHeight}"`);
-    }
-
-    const imgTag = `<img ${imgAttrs.join(
-      " "
-    )} alt="${escapedAlt}" src="${escapedSrc}" />`;
-
-    return `<ax-blurest ${axAttrsString}>${imgTag}</ax-blurest>`;
-  };
+  /**
+   * Get project root
+   */
+  getProjectRoot(): string {
+    return this.options.projectRoot;
+  }
 }
-
-export default axBlurestPlugin;

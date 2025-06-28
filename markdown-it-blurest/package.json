@@ -1,0 +1,17 @@
+{
+  "name": "markdown-it-blurest",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@fuuck/blurest-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "markdown-it": "^14.1.0",
+    "@types/markdown-it": "^14.1.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

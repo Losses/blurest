@@ -7,11 +7,11 @@
 
 module.exports = require('@neon-rs/load').proxy({
   platforms: {
-    'win32-x64-msvc': () => require('@fuuck/blurest-win32-x64-msvc'),
-    'darwin-x64': () => require('@fuuck/blurest-darwin-x64'),
-    'darwin-arm64': () => require('@fuuck/blurest-darwin-arm64'),
-    'linux-x64-gnu': () => require('@fuuck/blurest-linux-x64-gnu'),
-    'linux-arm64-gnu': () => require('@fuuck/blurest-linux-arm64-gnu')
+    'win32-x64-msvc': () => require('@fuuck/blurest-core-win32-x64-msvc'),
+    'darwin-x64': () => require('@fuuck/blurest-core-darwin-x64'),
+    'darwin-arm64': () => require('@fuuck/blurest-core-darwin-arm64'),
+    'linux-x64-gnu': () => require('@fuuck/blurest-core-linux-x64-gnu'),
+    'linux-arm64-gnu': () => require('@fuuck/blurest-core-linux-arm64-gnu')
   },
   debug: () => require('../index.node')
 });

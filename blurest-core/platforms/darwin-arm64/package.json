@@ -1,12 +1,12 @@
 {
-  "name": "@fuuck/blurest-darwin-x64",
-  "description": "Prebuilt binary package for `blurest` on `darwin-x64`.",
+  "name": "@fuuck/blurest-core-darwin-arm64",
+  "description": "Prebuilt binary package for `blurest` on `darwin-arm64`.",
   "version": "0.1.0",
   "os": [
     "darwin"
   ],
   "cpu": [
-    "x64"
+    "arm64"
   ],
   "main": "index.node",
   "files": [
@@ -14,10 +14,10 @@
   ],
   "neon": {
     "type": "binary",
-    "rust": "x86_64-apple-darwin",
-    "node": "darwin-x64",
+    "rust": "aarch64-apple-darwin",
+    "node": "darwin-arm64",
     "os": "darwin",
-    "arch": "x64",
+    "arch": "arm64",
     "abi": null
   },
   "author": "",

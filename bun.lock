@@ -4,22 +4,61 @@
     "": {
       "name": "blurest",
       "dependencies": {
+        "@neon-rs/cli": "^0.1.82",
+      },
+    },
+    "blurest-core": {
+      "name": "@fuuck/blurest-core",
+      "version": "0.1.0",
+      "dependencies": {
         "@neon-rs/load": "^0.1.82",
-        "markdown-it": "^14.1.0",
       },
       "devDependencies": {
         "@neon-rs/cli": "^0.1.82",
         "@tsconfig/node20": "^20.1.4",
-        "@types/markdown-it": "^14.1.2",
         "@types/node": "^20.11.16",
         "typescript": "^5.3.3",
       },
       "optionalDependencies": {
-        "@fuuck/blurest-darwin-arm64": "0.1.0",
-        "@fuuck/blurest-darwin-x64": "0.1.0",
-        "@fuuck/blurest-linux-arm64-gnu": "0.1.0",
-        "@fuuck/blurest-linux-x64-gnu": "0.1.0",
-        "@fuuck/blurest-win32-x64-msvc": "0.1.0",
+        "@fuuck/blurest-core-darwin-arm64": "0.1.0",
+        "@fuuck/blurest-core-darwin-x64": "0.1.0",
+        "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0",
+        "@fuuck/blurest-core-linux-x64-gnu": "0.1.0",
+        "@fuuck/blurest-core-win32-x64-msvc": "0.1.0",
+      },
+    },
+    "blurest-core/platforms/darwin-arm64": {
+      "name": "@fuuck/blurest-core-darwin-arm64",
+      "version": "0.1.0",
+    },
+    "blurest-core/platforms/darwin-x64": {
+      "name": "@fuuck/blurest-core-darwin-x64",
+      "version": "0.1.0",
+    },
+    "blurest-core/platforms/linux-arm64-gnu": {
+      "name": "@fuuck/blurest-core-linux-arm64-gnu",
+      "version": "0.1.0",
+    },
+    "blurest-core/platforms/linux-x64-gnu": {
+      "name": "@fuuck/blurest-core-linux-x64-gnu",
+      "version": "0.1.0",
+    },
+    "blurest-core/platforms/win32-x64-msvc": {
+      "name": "@fuuck/blurest-core-win32-x64-msvc",
+      "version": "0.1.0",
+    },
+    "markdown-it-blurest": {
+      "name": "markdown-it-blurest",
+      "dependencies": {
+        "@fuuck/blurest-core": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "@types/markdown-it": "^14.1.2",
+        "markdown-it": "^14.1.0",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
       },
     },
   },
@@ -44,11 +83,25 @@
 
     "@cargo-messages/win32-x64-msvc": ["@cargo-messages/win32-x64-msvc@0.1.81", "", { "os": "win32", "cpu": "x64" }, "sha512-B5Ukf4AohtIv27uCP/AgM+7vYwQ4RacI6m8ZBr2XKeSrjZXcXguzlZd+wD7bD5+wa0capvXKUskZDnpG/DcYiA=="],
 
+    "@fuuck/blurest-core": ["@fuuck/blurest-core@workspace:blurest-core"],
+
+    "@fuuck/blurest-core-darwin-arm64": ["@fuuck/blurest-core-darwin-arm64@workspace:blurest-core/platforms/darwin-arm64"],
+
+    "@fuuck/blurest-core-darwin-x64": ["@fuuck/blurest-core-darwin-x64@workspace:blurest-core/platforms/darwin-x64"],
+
+    "@fuuck/blurest-core-linux-arm64-gnu": ["@fuuck/blurest-core-linux-arm64-gnu@workspace:blurest-core/platforms/linux-arm64-gnu"],
+
+    "@fuuck/blurest-core-linux-x64-gnu": ["@fuuck/blurest-core-linux-x64-gnu@workspace:blurest-core/platforms/linux-x64-gnu"],
+
+    "@fuuck/blurest-core-win32-x64-msvc": ["@fuuck/blurest-core-win32-x64-msvc@workspace:blurest-core/platforms/win32-x64-msvc"],
+
     "@neon-rs/cli": ["@neon-rs/cli@0.1.82", "", { "optionalDependencies": { "@cargo-messages/android-arm-eabi": "0.1.81", "@cargo-messages/darwin-arm64": "0.1.81", "@cargo-messages/darwin-x64": "0.1.81", "@cargo-messages/linux-arm-gnueabihf": "0.1.81", "@cargo-messages/linux-arm64-gnu": "0.1.81", "@cargo-messages/linux-arm64-musl": "0.1.81", "@cargo-messages/linux-x64-gnu": "0.1.81", "@cargo-messages/linux-x64-musl": "0.1.81", "@cargo-messages/win32-arm64-msvc": "0.1.81", "@cargo-messages/win32-x64-msvc": "0.1.81" }, "bin": { "neon": "index.js" } }, "sha512-QrlGPQp9KOGuMvjjua79lEV2QTcE16m8JatG5ITdQpBAwRQpDw5xab57W9130y2iUEfMzYtp7v6pcN1fUB0Exg=="],
 
     "@neon-rs/load": ["@neon-rs/load@0.1.82", "", {}, "sha512-H4Gu2o5kPp+JOEhRrOQCnJnf7X6sv9FBLttM/wSbb4efsgFWeHzfU/ItZ01E5qqEk+U6QGdeVO7lxXIAtYHr5A=="],
 
     "@tsconfig/node20": ["@tsconfig/node20@20.1.6", "", {}, "sha512-sz+Hqx9zwZDpZIV871WSbUzSqNIsXzghZydypnfgzPKLltVJfkINfUeTct31n/tTSa9ZE1ZOfKdRre1uHHquYQ=="],
+
+    "@types/bun": ["@types/bun@1.2.17", "", { "dependencies": { "bun-types": "1.2.17" } }, "sha512-l/BYs/JYt+cXA/0+wUhulYJB6a6p//GTPiJ7nV+QHa8iiId4HZmnu/3J/SowP5g0rTiERY2kfGKXEK5Ehltx4Q=="],
 
     "@types/linkify-it": ["@types/linkify-it@5.0.0", "", {}, "sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q=="],
 
@@ -60,11 +113,15 @@
 
     "argparse": ["argparse@2.0.1", "", {}, "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="],
 
+    "bun-types": ["bun-types@1.2.17", "", { "dependencies": { "@types/node": "*" } }, "sha512-ElC7ItwT3SCQwYZDYoAH+q6KT4Fxjl8DtZ6qDulUFBmXA8YB4xo+l54J9ZJN+k2pphfn9vk7kfubeSd5QfTVJQ=="],
+
     "entities": ["entities@4.5.0", "", {}, "sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw=="],
 
     "linkify-it": ["linkify-it@5.0.0", "", { "dependencies": { "uc.micro": "^2.0.0" } }, "sha512-5aHCbzQRADcdP+ATqnDuhhJ/MRIqDkZX5pyjFHRRysS8vZ5AbqGEoFIb6pYHPZ+L/OC2Lc+xT8uHVVR5CAK/wQ=="],
 
     "markdown-it": ["markdown-it@14.1.0", "", { "dependencies": { "argparse": "^2.0.1", "entities": "^4.4.0", "linkify-it": "^5.0.0", "mdurl": "^2.0.0", "punycode.js": "^2.3.1", "uc.micro": "^2.1.0" }, "bin": { "markdown-it": "bin/markdown-it.mjs" } }, "sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg=="],
+
+    "markdown-it-blurest": ["markdown-it-blurest@workspace:markdown-it-blurest"],
 
     "mdurl": ["mdurl@2.0.0", "", {}, "sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w=="],
 
