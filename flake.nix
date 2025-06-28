@@ -23,6 +23,7 @@
             eza
             fd
             protobuf
+            sqlite
             (rust-bin.beta.latest.default.override {
               extensions = [ "rust-src" ];
             })

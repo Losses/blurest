@@ -1,0 +1,50 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "blurest",
+      "dependencies": {
+        "@neon-rs/load": "^0.1.82",
+      },
+      "devDependencies": {
+        "@neon-rs/cli": "^0.1.82",
+        "@tsconfig/node20": "^20.1.4",
+        "@types/node": "^20.11.16",
+        "typescript": "^5.3.3",
+      },
+    },
+  },
+  "packages": {
+    "@cargo-messages/android-arm-eabi": ["@cargo-messages/android-arm-eabi@0.1.81", "", { "os": "android", "cpu": "arm" }, "sha512-cpRbgb56e9LmAj96Tixtz9/bTlaJAeplWNNv4obu+eqQyZd3ZjX04TJd9fM1bjHDGVyR9GTVlgBsbQEntIGkwg=="],
+
+    "@cargo-messages/darwin-arm64": ["@cargo-messages/darwin-arm64@0.1.81", "", { "os": "darwin", "cpu": "arm64" }, "sha512-OwGqsw+tbJx37a/vH4T8R9qkrrFYoTIOnckbA9+MhQodE2FSWyk3HvLh+z8jjl+QZa1RSOU9Ax6gt/46h0BiTg=="],
+
+    "@cargo-messages/darwin-x64": ["@cargo-messages/darwin-x64@0.1.81", "", { "os": "darwin", "cpu": "x64" }, "sha512-Iu761bPk25Ce6yUdDCjjeVuT8/xbBmczyaNB7oYBmAZEE5rshvCJ42TqSShYYP+S7pKkN42nBhkFooaZrqaz9g=="],
+
+    "@cargo-messages/linux-arm-gnueabihf": ["@cargo-messages/linux-arm-gnueabihf@0.1.81", "", { "os": "linux", "cpu": "arm" }, "sha512-iIuy7KTJAEhbiqlIlcxQOdW6opI6M9LXlgd/jdsHbP2FjmTyhTLnd3JCJ6JeAeidwknCDs+CFlaVmPxTKSytsg=="],
+
+    "@cargo-messages/linux-arm64-gnu": ["@cargo-messages/linux-arm64-gnu@0.1.81", "", { "os": "linux", "cpu": "arm64" }, "sha512-QPQRsHj9m/9ga8wRBlLh8t2AXyr40+/H55FIKVj7zIjV++waY/TbSTPofDZQhMycd5VSGLKztfhahiCO7c/RAQ=="],
+
+    "@cargo-messages/linux-arm64-musl": ["@cargo-messages/linux-arm64-musl@0.1.81", "", { "os": "linux", "cpu": "arm64" }, "sha512-9O0ATesIOjDTz2L01OtlGHYwP86I31/mzXMC+ryQkzbbIKj7KUiSqmEc29I14I517UYO8/sMeow6q6MVBpehlA=="],
+
+    "@cargo-messages/linux-x64-gnu": ["@cargo-messages/linux-x64-gnu@0.1.81", "", { "os": "linux", "cpu": "x64" }, "sha512-wEFYxCdtHNiEvp5KEg17CfRCUdfRTtkL+1GASROyvYEUV6DQf6TXxfHuuWg2xlVxh5fqiTGFSRfiqFrCDL/xrw=="],
+
+    "@cargo-messages/linux-x64-musl": ["@cargo-messages/linux-x64-musl@0.1.81", "", { "os": "linux", "cpu": "x64" }, "sha512-zi5pKIh60oPwOCDQapAZ3Mya4y56MI2BoGvY8JtztYaXTorGmAoyf6jjb50Wt+HfoYYjM3OlPt03XMlCFZJnIQ=="],
+
+    "@cargo-messages/win32-arm64-msvc": ["@cargo-messages/win32-arm64-msvc@0.1.81", "", { "os": "win32", "cpu": "arm64" }, "sha512-oyiT8AYLoguF7cFOMYDsPv3eirzBcFafOOfRsFyd3+wmaPTl/DdbCq446oThRmSAsEGJpzhzj7TafcnXMBkHbg=="],
+
+    "@cargo-messages/win32-x64-msvc": ["@cargo-messages/win32-x64-msvc@0.1.81", "", { "os": "win32", "cpu": "x64" }, "sha512-B5Ukf4AohtIv27uCP/AgM+7vYwQ4RacI6m8ZBr2XKeSrjZXcXguzlZd+wD7bD5+wa0capvXKUskZDnpG/DcYiA=="],
+
+    "@neon-rs/cli": ["@neon-rs/cli@0.1.82", "", { "optionalDependencies": { "@cargo-messages/android-arm-eabi": "0.1.81", "@cargo-messages/darwin-arm64": "0.1.81", "@cargo-messages/darwin-x64": "0.1.81", "@cargo-messages/linux-arm-gnueabihf": "0.1.81", "@cargo-messages/linux-arm64-gnu": "0.1.81", "@cargo-messages/linux-arm64-musl": "0.1.81", "@cargo-messages/linux-x64-gnu": "0.1.81", "@cargo-messages/linux-x64-musl": "0.1.81", "@cargo-messages/win32-arm64-msvc": "0.1.81", "@cargo-messages/win32-x64-msvc": "0.1.81" }, "bin": { "neon": "index.js" } }, "sha512-QrlGPQp9KOGuMvjjua79lEV2QTcE16m8JatG5ITdQpBAwRQpDw5xab57W9130y2iUEfMzYtp7v6pcN1fUB0Exg=="],
+
+    "@neon-rs/load": ["@neon-rs/load@0.1.82", "", {}, "sha512-H4Gu2o5kPp+JOEhRrOQCnJnf7X6sv9FBLttM/wSbb4efsgFWeHzfU/ItZ01E5qqEk+U6QGdeVO7lxXIAtYHr5A=="],
+
+    "@tsconfig/node20": ["@tsconfig/node20@20.1.6", "", {}, "sha512-sz+Hqx9zwZDpZIV871WSbUzSqNIsXzghZydypnfgzPKLltVJfkINfUeTct31n/tTSa9ZE1ZOfKdRre1uHHquYQ=="],
+
+    "@types/node": ["@types/node@20.19.1", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-jJD50LtlD2dodAEO653i3YF04NWak6jN3ky+Ri3Em3mGR39/glWiboM/IePaRbgwSfqM1TpGXfAg8ohn/4dTgA=="],
+
+    "typescript": ["typescript@5.8.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ=="],
+
+    "undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
+  }
+}
