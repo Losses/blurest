@@ -1,0 +1,23 @@
+[package]
+name = "blurest"
+version = "0.1.0"
+license = "MIT"
+edition = "2024"
+exclude = ["index.node"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+blurhash = "0.2.3"
+chrono = "0.4.41"
+diesel = { version = "2.2.11", features = [
+    "sqlite",
+    "returning_clauses_for_sqlite_3_35",
+] }
+dotenvy = "0.15.7"
+filetime = "0.2.25"
+hex = "0.4.3"
+neon = "1.1"
+xxhash-rust = "0.8.15"
