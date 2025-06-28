@@ -1,6 +1,7 @@
 import type MarkdownIt from "markdown-it";
 import type { Token, Renderer } from "markdown-it";
 import path from "node:path";
+import fs from "node:fs";
 
 import * as addon from "./load.cjs";
 
@@ -10,7 +11,6 @@ import * as addon from "./load.cjs";
 interface AxBlurestPluginOptions {
   /**
    * Database connection string
-   * @example 'postgresql://user:pass@localhost/db'
    */
   databaseUrl: string;
 
@@ -56,6 +56,18 @@ interface ParsedImageSource {
   renderHeight: number | null;
 }
 
+/**
+ * File validation result.
+ */
+interface FileValidationResult {
+  /** Whether the file should be processed by the native module */
+  shouldProcess: boolean;
+  /** Resolved absolute path (only if shouldProcess is true) */
+  resolvedPath?: string;
+  /** Validation failure reason (only if shouldProcess is false) */
+  reason?: string;
+}
+
 // Type declarations for the native module exports
 declare module "./load.cjs" {
   /**
@@ -87,6 +99,83 @@ declare module "./load.cjs" {
    * @returns `true` if cleanup succeeds
    */
   function clear_context(): boolean;
+}
+
+/**
+ * Check if a URL is a network URL (starts with http:// or https://).
+ * @param src Image source string
+ * @returns true if it's a network URL
+ */
+function isNetworkUrl(src: string): boolean {
+  return /^https?:\/\//.test(src);
+}
+
+/**
+ * Validate if the file should be processed by the native module.
+ * @param src Image source path
+ * @param projectRoot Project root directory
+ * @returns Validation result with processing decision
+ */
+function validateFile(src: string, projectRoot: string): FileValidationResult {
+  // Skip network URLs
+  if (isNetworkUrl(src)) {
+    return {
+      shouldProcess: false,
+      reason: "Network URL detected",
+    };
+  }
+
+  let resolvedPath: string;
+
+  try {
+    // Resolve path relative to project root
+    if (path.isAbsolute(src)) {
+      resolvedPath = src;
+    } else {
+      resolvedPath = path.resolve(projectRoot, src);
+    }
+
+    // Normalize paths for comparison
+    const normalizedProjectRoot = path.normalize(projectRoot);
+    const normalizedResolvedPath = path.normalize(resolvedPath);
+
+    // Check if file is within project root
+    if (!normalizedResolvedPath.startsWith(normalizedProjectRoot)) {
+      return {
+        shouldProcess: false,
+        reason: "File is outside project root",
+      };
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(resolvedPath)) {
+      return {
+        shouldProcess: false,
+        reason: "File does not exist",
+      };
+    }
+
+    // Check if it's actually a file (not a directory)
+    const stats = fs.statSync(resolvedPath);
+    if (!stats.isFile()) {
+      return {
+        shouldProcess: false,
+        reason: "Path is not a file",
+      };
+    }
+
+    return {
+      shouldProcess: true,
+      resolvedPath,
+    };
+  } catch (error) {
+    return {
+      shouldProcess: false,
+      reason: `File validation error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
 }
 
 /**
@@ -129,6 +218,32 @@ function parseImageSrc(src: string): ParsedImageSource {
     renderWidth: !isNaN(renderWidth ?? NaN) ? renderWidth : null,
     renderHeight: !isNaN(renderHeight ?? NaN) ? renderHeight : null,
   };
+}
+
+/**
+ * Render a fallback <img> tag.
+ * @param src Image source
+ * @param alt Alt text
+ * @param renderWidth Render width
+ * @param renderHeight Render height
+ * @param md MarkdownIt instance for escaping
+ * @returns HTML string
+ */
+function renderFallbackImg(
+  src: string,
+  alt: string,
+  renderWidth: number | null,
+  renderHeight: number | null,
+  md: MarkdownIt
+): string {
+  const escapedAlt = md.utils.escapeHtml(alt);
+  const escapedSrc = md.utils.escapeHtml(src);
+
+  const attrs: string[] = [`src="${escapedSrc}"`, `alt="${escapedAlt}"`];
+  if (renderWidth !== null) attrs.push(`width="${renderWidth}"`);
+  if (renderHeight !== null) attrs.push(`height="${renderHeight}"`);
+
+  return `<img ${attrs.join(" ")}>`;
 }
 
 /**
@@ -194,6 +309,17 @@ function axBlurestPlugin(
     // Parse src to get path and render dimensions
     const { cleanSrc, renderWidth, renderHeight } = parseImageSrc(srcAttr);
 
+    // Validate file before processing
+    const validation = validateFile(cleanSrc, options.projectRoot);
+
+    if (!validation.shouldProcess) {
+      // Use fallback <img> tag for invalid files
+      console.debug(
+        `[markdown-it-ax-blurest] Skipping blurhash processing for "${cleanSrc}": ${validation.reason}`
+      );
+      return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
+    }
+
     // Get blurhash and original dimensions from native module
     const result = addon.get_blurhash(cleanSrc);
 
@@ -205,10 +331,7 @@ function axBlurestPlugin(
         `[markdown-it-ax-blurest] Failed to get blurhash for "${cleanSrc}": ${result.error}`
       );
       // Fallback to standard <img> tag
-      const attrs: string[] = [];
-      if (renderWidth) attrs.push(`width="${renderWidth}"`);
-      if (renderHeight) attrs.push(`height="${renderHeight}"`);
-      return `<img src="${escapedSrc}" alt="${escapedAlt}" ${attrs.join(" ")}>`;
+      return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
     }
 
     const { blurhash, width: srcWidth, height: srcHeight } = result;
