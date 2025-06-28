@@ -3,24 +3,16 @@ import { writeFileSync } from "node:fs";
 
 import MarkdownIt from "markdown-it";
 
-import markdownItGladest from "@fuuck/markdown-it-gladest";
+import markdownItBlurest from "@fuuck/markdown-it-blurest";
 
 const md = new MarkdownIt({
   html: true,
   xhtmlOut: true,
   breaks: false,
   typographer: true,
-}).use(markdownItGladest, {
-  format: "svg",
-  ppi: 600,
-  fonts: {
-    bodyFont: {
-      system: "Noto Serif SC",
-    },
-    mathFont: {
-      file: join(import.meta.dir, "LeteSansMath.otf"),
-    },
-  },
+}).use(markdownItBlurest, {
+  databaseUrl: join(__dirname, "db.sqlite3"),
+  projectRoot: __dirname,
 });
 
 const document = `

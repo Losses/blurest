@@ -58,16 +58,21 @@ function renderAxBlurestComponent(
   const escapedAlt = md.utils.escapeHtml(alt);
   const escapedSrc = md.utils.escapeHtml(src);
 
-  // Build <ax-blurest> component attributes
+  // FIX: Build attributes conditionally to avoid empty attributes
   const axAttrs: [string, string | number][] = [
     ["src-width", srcWidth],
     ["src-height", srcHeight],
-    ["render-width", renderWidth ?? ""],
-    ["render-height", renderHeight ?? ""],
     ["alt", escapedAlt],
     ["src", escapedSrc],
     ["blurhash", blurhash],
   ];
+
+  if (renderWidth !== null) {
+    axAttrs.push(["render-width", renderWidth]);
+  }
+  if (renderHeight !== null) {
+    axAttrs.push(["render-height", renderHeight]);
+  }
 
   const axAttrsString = axAttrs
     .map(([key, value]) => `${key}="${value}"`)
@@ -95,10 +100,7 @@ function renderAxBlurestComponent(
  * @param md MarkdownIt instance
  * @param options Plugin configuration options
  */
-function axBlurestPlugin(
-  md: MarkdownIt,
-  options: BlurhashCoreOptions
-): void {
+function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
   // Create and initialize core
   const core = new BlurhashCore(options);
   core.initialize();
@@ -134,11 +136,10 @@ function axBlurestPlugin(
     // Parse src to get path and render dimensions
     const { cleanSrc, renderWidth, renderHeight } = parseImageSrc(srcAttr);
 
-    // Process image through core
-    const result = core.processImage(srcAttr);
+    const result = core.processImage(cleanSrc);
 
     if (!result) {
-      // Use fallback <img> tag for skipped files
+      // Use fallback <img> tag for skipped files (e.g. network URLs)
       return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
     }
 
@@ -146,7 +147,7 @@ function axBlurestPlugin(
       console.warn(
         `[markdown-it-ax-blurest] Failed to get blurhash for "${cleanSrc}": ${result.error}`
       );
-      // Fallback to standard <img> tag
+      // Fallback to standard <img> tag on processing error
       return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
     }
 

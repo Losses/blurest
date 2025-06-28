@@ -273,7 +273,7 @@ export class BlurhashCore {
 
   /**
    * Process an image and get blurhash data
-   * @param src Image source path
+   * @param src Clean image source path (without size definitions)
    * @returns Blurhash result or null if processing should be skipped
    */
   processImage(src: string): BlurhashResult | null {
@@ -283,21 +283,18 @@ export class BlurhashCore {
       );
     }
 
-    // Parse src to get clean path
-    const { cleanSrc } = parseImageSrc(src);
-
     // Validate file before processing
-    const validation = validateFile(cleanSrc, this.options.projectRoot);
+    const validation = validateFile(src, this.options.projectRoot);
 
     if (!validation.shouldProcess) {
       console.debug(
-        `[blurhash-core] Skipping blurhash processing for "${cleanSrc}": ${validation.reason}`
+        `[blurhash-core] Skipping blurhash processing for "${src}": ${validation.reason}`
       );
       return null;
     }
 
     // Get blurhash and original dimensions from native module
-    return addon.get_blurhash(cleanSrc);
+    return addon.get_blurhash(src);
   }
 
   /**
