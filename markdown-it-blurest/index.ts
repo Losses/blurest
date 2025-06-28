@@ -8,11 +8,6 @@ import {
 } from "@fuuck/blurest-core";
 
 /**
- * Plugin options for the markdown-it plugin.
- */
-export interface AxBlurestPluginOptions extends BlurhashCoreOptions {}
-
-/**
  * Render a fallback <img> tag.
  * @param src Image source
  * @param alt Alt text
@@ -102,7 +97,7 @@ function renderAxBlurestComponent(
  */
 function axBlurestPlugin(
   md: MarkdownIt,
-  options: AxBlurestPluginOptions
+  options: BlurhashCoreOptions
 ): void {
   // Create and initialize core
   const core = new BlurhashCore(options);

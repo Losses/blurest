@@ -1,0 +1,14 @@
+{
+  "name": "markdown-it-demo",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@fuuck/markdown-it-blurest": "workspace:*"
+  }
+}

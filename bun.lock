@@ -48,7 +48,7 @@
       "version": "0.1.0",
     },
     "markdown-it-blurest": {
-      "name": "markdown-it-blurest",
+      "name": "@fuuck/markdown-it-blurest",
       "dependencies": {
         "@fuuck/blurest-core": "workspace:*",
       },
@@ -56,6 +56,18 @@
         "@types/bun": "latest",
         "@types/markdown-it": "^14.1.2",
         "markdown-it": "^14.1.0",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
+    "markdown-it-demo": {
+      "name": "markdown-it-demo",
+      "dependencies": {
+        "@fuuck/markdown-it-blurest": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
       },
       "peerDependencies": {
         "typescript": "^5",
@@ -95,6 +107,8 @@
 
     "@fuuck/blurest-core-win32-x64-msvc": ["@fuuck/blurest-core-win32-x64-msvc@workspace:blurest-core/platforms/win32-x64-msvc"],
 
+    "@fuuck/markdown-it-blurest": ["@fuuck/markdown-it-blurest@workspace:markdown-it-blurest"],
+
     "@neon-rs/cli": ["@neon-rs/cli@0.1.82", "", { "optionalDependencies": { "@cargo-messages/android-arm-eabi": "0.1.81", "@cargo-messages/darwin-arm64": "0.1.81", "@cargo-messages/darwin-x64": "0.1.81", "@cargo-messages/linux-arm-gnueabihf": "0.1.81", "@cargo-messages/linux-arm64-gnu": "0.1.81", "@cargo-messages/linux-arm64-musl": "0.1.81", "@cargo-messages/linux-x64-gnu": "0.1.81", "@cargo-messages/linux-x64-musl": "0.1.81", "@cargo-messages/win32-arm64-msvc": "0.1.81", "@cargo-messages/win32-x64-msvc": "0.1.81" }, "bin": { "neon": "index.js" } }, "sha512-QrlGPQp9KOGuMvjjua79lEV2QTcE16m8JatG5ITdQpBAwRQpDw5xab57W9130y2iUEfMzYtp7v6pcN1fUB0Exg=="],
 
     "@neon-rs/load": ["@neon-rs/load@0.1.82", "", {}, "sha512-H4Gu2o5kPp+JOEhRrOQCnJnf7X6sv9FBLttM/wSbb4efsgFWeHzfU/ItZ01E5qqEk+U6QGdeVO7lxXIAtYHr5A=="],
@@ -121,7 +135,7 @@
 
     "markdown-it": ["markdown-it@14.1.0", "", { "dependencies": { "argparse": "^2.0.1", "entities": "^4.4.0", "linkify-it": "^5.0.0", "mdurl": "^2.0.0", "punycode.js": "^2.3.1", "uc.micro": "^2.1.0" }, "bin": { "markdown-it": "bin/markdown-it.mjs" } }, "sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg=="],
 
-    "markdown-it-blurest": ["markdown-it-blurest@workspace:markdown-it-blurest"],
+    "markdown-it-demo": ["markdown-it-demo@workspace:markdown-it-demo"],
 
     "mdurl": ["mdurl@2.0.0", "", {}, "sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w=="],
 

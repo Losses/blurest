@@ -56,11 +56,6 @@
     "@fuuck/blurest-core-darwin-x64": "0.1.0",
     "@fuuck/blurest-core-darwin-arm64": "0.1.0",
     "@fuuck/blurest-core-linux-x64-gnu": "0.1.0",
-    "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0",
-    "@fuuck/blurest-win32-x64-msvc": "0.1.0",
-    "@fuuck/blurest-darwin-x64": "0.1.0",
-    "@fuuck/blurest-darwin-arm64": "0.1.0",
-    "@fuuck/blurest-linux-x64-gnu": "0.1.0",
-    "@fuuck/blurest-linux-arm64-gnu": "0.1.0"
+    "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0"
   }
 }

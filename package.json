@@ -3,7 +3,8 @@
   "workspaces": [
     "blurest-core",
     "blurest-core/platforms/*",
-    "markdown-it-blurest"
+    "markdown-it-blurest",
+    "markdown-it-demo"
   ],
   "dependencies": {
     "@neon-rs/cli": "^0.1.82"

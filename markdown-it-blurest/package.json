@@ -1,5 +1,5 @@
 {
-  "name": "markdown-it-blurest",
+  "name": "@fuuck/markdown-it-blurest",
   "module": "index.ts",
   "type": "module",
   "private": true,
