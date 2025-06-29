@@ -89,7 +89,7 @@ import { join } from "path";
 const md = new MarkdownIt();
 
 md.use(axBlurestPlugin, {
-  databaseUrl: join(__dirname, "blurhash-cache.sqlite3"),
+  databasePath: join(__dirname, "blurhash-cache.sqlite3"),
   projectRoot: __dirname,
 });
 

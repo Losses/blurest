@@ -10,7 +10,7 @@ export interface BlurhashCoreOptions {
   /**
    * Database connection string
    */
-  databaseUrl: string;
+  databasePath: string;
 
   /**
    * Absolute path to the project root directory.
@@ -70,12 +70,12 @@ export interface FileValidationResult {
 declare module "./load.cjs" {
   /**
    * Initialize the Blurhash cache system. Must be called before all other functions.
-   * @param databaseUrl Database connection string
+   * @param databasePath Database connection string
    * @param projectRoot Project root directory path
    * @returns `true` if initialization succeeds, otherwise throws an error
    */
   function initialize_blurhash_cache(
-    databaseUrl: string,
+    databasePath: string,
     projectRoot: string
   ): boolean;
 
@@ -236,15 +236,15 @@ export class BlurhashCore {
    * Initialize the Blurhash cache system
    */
   initialize(): void {
-    if (!this.options.databaseUrl || !this.options.projectRoot) {
+    if (!this.options.databasePath || !this.options.projectRoot) {
       throw new Error(
-        "[blurhash-core] `databaseUrl` and `projectRoot` options are required."
+        "[blurhash-core] `databasePath` and `projectRoot` options are required."
       );
     }
 
     try {
       const initialized = addon.initialize_blurhash_cache(
-        this.options.databaseUrl,
+        this.options.databasePath,
         this.options.projectRoot
       );
       if (!initialized) {

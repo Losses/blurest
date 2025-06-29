@@ -27,7 +27,7 @@ import { BlurhashCore } from "@fuuck/blurest-core";
 
 // Initialize the core
 const blurhash = new BlurhashCore({
-  databaseUrl: join(__dirname, "db.sqlite3"),
+  databasePath: join(__dirname, "db.sqlite3"),
   projectRoot: __dirname,
 });
 
@@ -60,7 +60,7 @@ new BlurhashCore(options: BlurhashCoreOptions)
 
 **Options:**
 
-- `databaseUrl`: Path of the database file, will be created if it doesn't exist
+- `databasePath`: Path of the database file, will be created if it doesn't exist
 - `projectRoot`: Absolute path to your project root directory
 
 #### Methods
@@ -175,7 +175,7 @@ type BlurhashResult = BlurhashSuccessResult | BlurhashErrorResult;
 
 ```typescript
 interface BlurhashCoreOptions {
-  databaseUrl: string;
+  databasePath: string;
   projectRoot: string;
 }
 
@@ -200,7 +200,7 @@ interface FileValidationResult {
 import { BlurhashCore } from "@fuuck/blurest-core";
 
 const core = new BlurhashCore({
-  databaseUrl: join(__dirname, "db.sqlite3"),
+  databasePath: join(__dirname, "db.sqlite3"),
   projectRoot: __dirname,
 });
 
@@ -221,7 +221,7 @@ import { BlurhashCore } from "@fuuck/blurest-core";
 import { glob } from "glob";
 
 const core = new BlurhashCore({
-  databaseUrl: join(__dirname, "db.sqlite3"),
+  databasePath: join(__dirname, "db.sqlite3"),
   projectRoot: __dirname,
 });
 
@@ -245,7 +245,7 @@ core.cleanup();
 import { BlurhashCore, parseImageSrc } from "@fuuck/blurest-core";
 
 const core = new BlurhashCore({
-  databaseUrl: join(__dirname, "db.sqlite3"),
+  databasePath: join(__dirname, "db.sqlite3"),
   projectRoot: __dirname,
 });
 

@@ -1,7 +1,7 @@
 {
   "name": "@fuuck/blurest-core-darwin-x64",
   "description": "Prebuilt binary package for `blurest` on `darwin-x64`.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "os": [
     "darwin"
   ],

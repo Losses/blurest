@@ -11,7 +11,7 @@ const md = new MarkdownIt({
   breaks: false,
   typographer: true,
 }).use(markdownItBlurest, {
-  databaseUrl: join(__dirname, "db.sqlite3"),
+  databasePath: join(__dirname, "db.sqlite3"),
   projectRoot: __dirname,
 });
 

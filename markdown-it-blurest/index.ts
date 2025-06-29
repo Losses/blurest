@@ -11,6 +11,8 @@ import {
   type BlurhashCoreOptions,
   parseImageSrc,
 } from "@fuuck/blurest-core";
+import path from "path";
+import fs from "fs";
 
 interface ParseResult {
   href: string;
@@ -23,6 +25,83 @@ interface DimensionMatch {
   width: number | null;
   height: number | null;
   consumed: number;
+}
+
+interface StaticFileMapping {
+  /**
+   * Root directory path for static file storage
+   * e.g.: "./static" or "/var/www/static"
+   */
+  staticDir: string;
+
+  /**
+   * URL path prefix matching rules
+   * e.g.: ["/images/", "/assets/"] means paths starting with these prefixes will be mapped to staticDir
+   * If empty array, all relative paths will attempt to be mapped to staticDir
+   */
+  urlPrefixes?: string[];
+}
+
+interface AxBlurestPluginOptions extends BlurhashCoreOptions {
+  /**
+   * Static file mapping configuration
+   * Used to handle relative path image resource mapping
+   */
+  staticFileMapping?: StaticFileMapping;
+}
+
+/**
+ * Resolve the actual file path for an image
+ * @param imageSrc Image source path
+ * @param staticMapping Static file mapping configuration
+ * @returns Resolved actual file path, returns original path if unable to resolve
+ */
+function resolveImagePath(
+  imageSrc: string,
+  staticMapping?: StaticFileMapping
+): string {
+  // If it's an absolute URL or no static mapping configured, return original path directly
+  if (
+    !staticMapping ||
+    imageSrc.startsWith("http://") ||
+    imageSrc.startsWith("https://")
+  ) {
+    return imageSrc;
+  }
+
+  const { staticDir, urlPrefixes = [] } = staticMapping;
+
+  // If no URL prefixes specified, map all relative paths
+  if (urlPrefixes.length === 0) {
+    // Remove leading '/' to avoid path joining issues
+    const relativePath = imageSrc.startsWith("/")
+      ? imageSrc.slice(1)
+      : imageSrc;
+    const resolvedPath = path.resolve(staticDir, relativePath);
+
+    // Check if file exists
+    if (fs.existsSync(resolvedPath)) {
+      return resolvedPath;
+    }
+    return imageSrc; // Return original path when file doesn't exist
+  }
+
+  // Check if matches any URL prefix
+  for (const prefix of urlPrefixes) {
+    if (imageSrc.startsWith(prefix)) {
+      // Remove prefix and build actual file path
+      const relativePath = imageSrc.slice(prefix.length);
+      const resolvedPath = path.resolve(staticDir, relativePath);
+
+      // Check if file exists
+      if (fs.existsSync(resolvedPath)) {
+        return resolvedPath;
+      }
+      break; // Matched prefix but file doesn't exist, break loop
+    }
+  }
+
+  return imageSrc; // Return original path when unable to resolve
 }
 
 /**
@@ -359,9 +438,20 @@ function renderAxBlurestComponent(
  * @param md MarkdownIt instance
  * @param options Plugin configuration options
  */
-function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
+function axBlurestPlugin(
+  md: MarkdownIt,
+  options: AxBlurestPluginOptions
+): void {
+  const { databasePath, staticFileMapping, ...coreOptions } = options;
+
+  // Create core options with the correct database URL parameter
+  const blurhashCoreOptions: BlurhashCoreOptions = {
+    ...coreOptions,
+    databasePath,
+  };
+
   // Create and initialize core
-  const core = new BlurhashCore(options);
+  const core = new BlurhashCore(blurhashCoreOptions);
   core.initialize();
 
   // Backup default renderer
@@ -402,7 +492,10 @@ function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
     // Clean the source URL
     const { cleanSrc } = parseImageSrc(srcAttr);
 
-    const result = core.processImage(cleanSrc);
+    // Resolve the actual file path using static file mapping
+    const resolvedSrc = resolveImagePath(cleanSrc, staticFileMapping);
+
+    const result = core.processImage(resolvedSrc);
 
     if (!result) {
       // Use fallback <img> tag for skipped files
@@ -411,7 +504,7 @@ function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
 
     if (!result.success) {
       console.warn(
-        `[markdown-it-ax-blurest] Failed to get blurhash for "${cleanSrc}": ${result.error}`
+        `[markdown-it-ax-blurest] Failed to get blurhash for "${resolvedSrc}" (original: "${cleanSrc}"): ${result.error}`
       );
       // Fallback to standard <img> tag on processing error
       return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
@@ -420,7 +513,7 @@ function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
     const { blurhash, width: srcWidth, height: srcHeight } = result;
 
     return renderAxBlurestComponent(
-      cleanSrc,
+      cleanSrc, // Use original cleanSrc as the src displayed in frontend
       alt,
       renderWidth,
       renderHeight,
@@ -431,8 +524,9 @@ function axBlurestPlugin(md: MarkdownIt, options: BlurhashCoreOptions): void {
     );
   };
 
-  // Store core instance for cleanup
+  // Store core instance and options for cleanup
   (md as any).__axBlurestCore = core;
+  (md as any).__axBlurestOptions = options;
 }
 
 /**
@@ -444,9 +538,11 @@ export function cleanupAxBlurest(md: MarkdownIt): boolean {
   if (core) {
     const result = core.cleanup();
     delete (md as any).__axBlurestCore;
+    delete (md as any).__axBlurestOptions;
     return result;
   }
   return true;
 }
 
 export default axBlurestPlugin;
+export type { AxBlurestPluginOptions, StaticFileMapping };

@@ -1,6 +1,7 @@
 {
   "name": "blurest",
   "workspaces": [
+    "blurest-wc",
     "blurest-core",
     "blurest-core/platforms/*",
     "markdown-it-blurest",
