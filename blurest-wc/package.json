@@ -1,10 +1,17 @@
 {
     "name": "@fuuck/blurest-wc",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "Web component that implement the image lazy loading image.",
     "main": "build/main.js",
     "module": "es/index.js",
     "typings": "es/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./es/index.js",
+            "require": "./build/main.js",
+            "types": "./es/index.d.ts"
+        }
+    },
     "repository": "https://github.com/Losses/blurest",
     "license": "MIT",
     "sideEffects": false,
