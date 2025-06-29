@@ -170,10 +170,10 @@ class BlurhashDecoder {
     private static decode83(str: string): number {
         let value = 0;
         for (let i = 0; i < str.length; i++) {
-            const c = str[i];
-            const digit = this.BASE83_CHARS.indexOf(c);
+            const char = str[i];
+            const digit = this.BASE83_CHARS.indexOf(char);
             if (digit === -1) {
-                throw new ValidationError(`Invalid base83 character: ${c}`);
+                throw new ValidationError(`Invalid base83 character: ${char}`);
             }
             value = value * 83 + digit;
         }
@@ -186,11 +186,11 @@ class BlurhashDecoder {
      * @returns Linear RGB value (0-1)
      */
     private static sRGBToLinear(value: number): number {
-        const v = value / 255;
-        if (v <= 0.04045) {
-            return v / 12.92;
+        const normalizedValue = value / 255;
+        if (normalizedValue <= 0.04045) {
+            return normalizedValue / 12.92;
         } else {
-            return Math.pow((v + 0.055) / 1.055, 2.4);
+            return Math.pow((normalizedValue + 0.055) / 1.055, 2.4);
         }
     }
 
@@ -200,11 +200,11 @@ class BlurhashDecoder {
      * @returns sRGB value (0-255)
      */
     private static linearTosRGB(value: number): number {
-        const v = Math.max(0, Math.min(1, value));
-        if (v <= 0.0031308) {
-            return Math.trunc(v * 12.92 * 255 + 0.5);
+        const clampedValue = Math.max(0, Math.min(1, value));
+        if (clampedValue <= 0.0031308) {
+            return Math.trunc(clampedValue * 12.92 * 255 + 0.5);
         } else {
-            return Math.trunc((1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255 + 0.5);
+            return Math.trunc((1.055 * Math.pow(clampedValue, 1 / 2.4) - 0.055) * 255 + 0.5);
         }
     }
 
@@ -316,24 +316,24 @@ class BlurhashDecoder {
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                let r = 0;
-                let g = 0;
-                let b = 0;
+                let redValue = 0;
+                let greenValue = 0;
+                let blueValue = 0;
 
                 for (let j = 0; j < numY; j++) {
                     const basisY = Math.cos((Math.PI * y * j) / height);
                     for (let i = 0; i < numX; i++) {
                         const basis = Math.cos((Math.PI * x * i) / width) * basisY;
                         const color = colors[i + j * numX];
-                        r += color[0] * basis;
-                        g += color[1] * basis;
-                        b += color[2] * basis;
+                        redValue += color[0] * basis;
+                        greenValue += color[1] * basis;
+                        blueValue += color[2] * basis;
                     }
                 }
 
-                const intR = this.linearTosRGB(r);
-                const intG = this.linearTosRGB(g);
-                const intB = this.linearTosRGB(b);
+                const intR = this.linearTosRGB(redValue);
+                const intG = this.linearTosRGB(greenValue);
+                const intB = this.linearTosRGB(blueValue);
 
                 pixels[4 * x + 0 + y * bytesPerRow] = intR;
                 pixels[4 * x + 1 + y * bytesPerRow] = intG;
