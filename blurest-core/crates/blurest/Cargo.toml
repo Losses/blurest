@@ -22,6 +22,7 @@ env_logger = "0.11.8"
 filetime = "0.2.25"
 hex = "0.4.3"
 image = "0.25.6"
+libsqlite3-sys = { version = ">=0.17.2, <0.34.0", features = ["bundled"] }
 log = "0.4.27"
 neon = "1.1"
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }

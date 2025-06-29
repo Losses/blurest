@@ -140,26 +140,17 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $arch = "x64"
-          if ("${{ matrix.cfg.platform }}" -ne "win32-x64-msvc") {
-            $arch = "x86"
-          }
-          
-          # Define the target triplet for vcpkg
+          $arch = if ("${{ matrix.cfg.platform }}" -eq "win32-x64-msvc") { "x64" } else { "x86" }
           $triplet = "$arch-windows-static-md"
           
-          # Install openssl and sqlite3 using vcpkg
-          vcpkg install "openssl:$triplet" "sqlite3:$triplet"
-
-          # Get the path where vcpkg installed the libraries
-          $VCPKG_LIB_PATH = "$env:VCPKG_ROOT\installed\$triplet\lib"
-          $VCPKG_INCLUDE_PATH = "$env:VCPKG_ROOT\installed\$triplet\include"
-
-          # Add the vcpkg lib and include directories to the environment variables for the linker and compiler
-          Write-Host "Adding vcpkg library path to LIB: $VCPKG_LIB_PATH"
+          # Only install OpenSSL, SQLite will be bundled
+          vcpkg install "openssl:$triplet"
+          
+          $VCPKG_ROOT_PATH = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { "$env:VCPKG_INSTALLATION_ROOT" }
+          $VCPKG_LIB_PATH = "$VCPKG_ROOT_PATH\installed\$triplet\lib"
+          $VCPKG_INCLUDE_PATH = "$VCPKG_ROOT_PATH\installed\$triplet\include"
+          
           echo "LIB=$VCPKG_LIB_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          Write-Host "Adding vcpkg include path to INCLUDE: $VCPKG_INCLUDE_PATH"
           echo "INCLUDE=$VCPKG_INCLUDE_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install Native Dependencies (Linux)
