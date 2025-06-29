@@ -10,7 +10,7 @@ class ServerSideHTMLElement {
 }
 
 const PatchedHTMLElement =
-    typeof globalThis.Window === 'undefined' ? ((ServerSideHTMLElement as unknown) as typeof HTMLElement) : HTMLElement;
+    typeof globalThis.Window === 'undefined' ? (ServerSideHTMLElement as unknown as typeof HTMLElement) : HTMLElement;
 
 export class AxBlurest extends PatchedHTMLElement {
     static readonly ElementName = 'ax-blurest';
@@ -210,6 +210,11 @@ export class AxBlurest extends PatchedHTMLElement {
                     ${blurhashCSS}
                 }
 
+                .blurhash-backdrop-layer {
+                    opacity: 1;
+                    transition: opacity 500ms ease-in-out 100ms;
+                }
+
                 .blurhash-layer {
                     opacity: 1;
                     transition: opacity 500ms ease-in-out;
@@ -248,6 +253,10 @@ export class AxBlurest extends PatchedHTMLElement {
                 }
 
                 .blurhash-layer.fade-out {
+                    opacity: 0;
+                }
+
+                .blurhash-backdrop-layer.fade-out {
                     opacity: 0;
                 }
 
@@ -323,6 +332,7 @@ export class AxBlurest extends PatchedHTMLElement {
 
         this.loadStartTime = Date.now();
         const blurhashLayer = this.root.querySelector('.blurhash-layer') as HTMLElement;
+        const blurhashBackdropLayer = this.root.querySelector('.blurhash-backdrop-layer') as HTMLElement;
         const img = new Image();
 
         img.onload = () => {
@@ -339,6 +349,10 @@ export class AxBlurest extends PatchedHTMLElement {
 
             if (blurhashLayer) {
                 blurhashLayer.classList.add('fade-out');
+            }
+
+            if (blurhashBackdropLayer) {
+                blurhashBackdropLayer.classList.add('fade-out');
             }
 
             this.isImageLoaded = true;
@@ -367,6 +381,9 @@ export class AxBlurest extends PatchedHTMLElement {
             if (blurhashLayer) {
                 blurhashLayer.classList.add('fade-out');
             }
+            if (blurhashBackdropLayer) {
+                blurhashBackdropLayer.classList.add('fade-out');
+            }
 
             this.dispatchEvent(
                 new CustomEvent('image-error', {
@@ -394,14 +411,23 @@ export class AxBlurest extends PatchedHTMLElement {
             this.isImageLoaded = false;
             this.isImageError = false;
             this.loadStartTime = null;
+            this.isInViewport = false;
+
+            this.cleanupTimer();
+            this.cleanupObserver();
 
             if (property === 'debug' || property === 'debug-delay') {
                 this.render();
+                this.setupIntersectionObserver();
                 return;
             }
 
             this.render();
             this.setupIntersectionObserver();
+
+            if (this.isInViewport) {
+                this.handleViewportEntry();
+            }
         }
     }
 }
