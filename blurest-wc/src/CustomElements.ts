@@ -163,6 +163,7 @@ export class AxBlurest extends HTMLElement {
                     overflow: hidden;
                 }
 
+                .blurhash-backdrop-layer,
                 .blurhash-layer,
                 .image-layer,
                 .error-layer {
@@ -173,17 +174,22 @@ export class AxBlurest extends HTMLElement {
                     height: 100%;
                     object-fit: cover;
                 }
+                
+                .blurhash-backdrop-layer,
+                .blurhash-layer {
+                    ${blurhashCSS}
+                }
 
                 .blurhash-layer {
                     opacity: 1;
                     transition: opacity 500ms ease-in-out;
-                    ${blurhashCSS}
                 }
 
                 .error-layer {
                     opacity: 0;
                     pointer-events: none;
                     transition: opacity 300ms ease-in-out;
+                    box-sizing: border-box;
                 }
 
                 .image-layer {
@@ -215,7 +221,7 @@ export class AxBlurest extends HTMLElement {
                     opacity: 0;
                 }
 
-                .error-layer { background: #ffffff; border: 1px inset #c0c0c0; border-top-color: #808080; border-left-color: #808080; border-right-color: #dfdfdf; border-bottom-color: #dfdfdf; box-shadow: inset 1px 1px 0px #808080, inset -1px -1px 0px #ffffff; }
+                .error-layer { background: #ffffff; border: 1px inset #c0c0c0; border-top-color: #808080; border-left-color: #808080; border-right-color: #dfdfdf; border-bottom-color: #dfdfdf; box-shadow: inset 1px 1px 0px #808080, inset -1px -1px 0px #eee; }
                 .icon-container { position: absolute; top: 8px; left: 8px; width: 14px; height: 20px; background: white; border: 1px outset #c0c0c0; border-top-color: #d6d6d6; border-left-color: #d6d6d6; border-right-color: #808080; border-bottom-color: #808080; box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #9f9f9f; }
                 .red-x { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; }
                 .red-x::before, .red-x::after { content: ""; position: absolute; top: 50%; left: 50%; width: 8px; height: 1.25px; background: #ff0000; transform-origin: center; }
@@ -233,6 +239,7 @@ export class AxBlurest extends HTMLElement {
             </style>
             
             <div class="container">
+                <div class="blurhash-backdrop-layer"></div>
                 <div class="blurhash-layer"></div>
                 ${src ? `<img class="image-layer" src="" alt="${alt}" data-src="${src}">` : ''}
                 <div class="error-layer">
@@ -284,7 +291,6 @@ export class AxBlurest extends HTMLElement {
         const src = imageLayer.getAttribute('data-src');
         if (!src || this.isImageLoaded || this.isImageError) return;
 
-        // ADDED: Record the start time right before we initiate the load.
         this.loadStartTime = Date.now();
         const blurhashLayer = this.root.querySelector('.blurhash-layer') as HTMLElement;
         const img = new Image();
@@ -298,11 +304,9 @@ export class AxBlurest extends HTMLElement {
                 if (debugMode) console.log(`[AxBlurest Debug] Image loaded in ${loadDuration}ms. Skipping animation.`);
             }
 
-            // The rest of the logic triggers the animation
             imageLayer.src = src;
             imageLayer.classList.add('loaded');
 
-            // Fade out the blurhash layer simultaneously
             if (blurhashLayer) {
                 blurhashLayer.classList.add('fade-out');
             }
