@@ -193,12 +193,14 @@
             <p>
                 AxBlurest is a custom HTML element that provides progressive image loading with BlurHash placeholders.
                 It uses Intersection Observer for optimal performance, only loading images when they enter the viewport.
+                If BlurHash data is incomplete, it gracefully falls back to behaving like a standard lazy-loading image.
             </p>
 
             <h3>Key Features</h3>
             <ul>
                 <li>Lazy loading with Intersection Observer</li>
                 <li>BlurHash placeholder rendering</li>
+                <li>Graceful fallback to standard image rendering when data is incomplete</li>
                 <li>Debug mode with visual indicators</li>
                 <li>Configurable loading delays</li>
                 <li>Custom events for load states</li>
@@ -223,25 +225,34 @@
                         <td><code>src</code></td>
                         <td>string</td>
                         <td>No</td>
-                        <td>Image URL to load when in viewport</td>
+                        <td>Image URL to load. If omitted, only the BlurHash placeholder is shown.</td>
                     </tr>
                     <tr>
                         <td><code>src-width</code></td>
                         <td>number</td>
-                        <td>Yes</td>
-                        <td>Original image width (for aspect ratio)</td>
+                        <td>No</td>
+                        <td>
+                            Original image width. Required for aspect ratio and BlurHash placeholder. If missing,
+                            component falls back to standard image rendering.
+                        </td>
                     </tr>
                     <tr>
                         <td><code>src-height</code></td>
                         <td>number</td>
-                        <td>Yes</td>
-                        <td>Original image height (for aspect ratio)</td>
+                        <td>No</td>
+                        <td>
+                            Original image height. Required for aspect ratio and BlurHash placeholder. If missing,
+                            component falls back to standard image rendering.
+                        </td>
                     </tr>
                     <tr>
                         <td><code>blurhash</code></td>
                         <td>string</td>
-                        <td>Yes</td>
-                        <td>BlurHash string for placeholder</td>
+                        <td>No</td>
+                        <td>
+                            BlurHash string for the placeholder. If missing, component falls back to standard image
+                            rendering.
+                        </td>
                     </tr>
                     <tr>
                         <td><code>render-width</code></td>
@@ -269,6 +280,11 @@
                     </tr>
                 </tbody>
             </table>
+            <div class="note">
+                <strong>Note:</strong> For the full BlurHash placeholder effect, <code>src-width</code>,
+                <code>src-height</code>, and <code>blurhash</code> must all be provided. If any are missing, the
+                component will behave like a standard lazy-loading <code><img /></code> tag.
+            </div>
         </div>
 
         <div class="section">
@@ -420,7 +436,7 @@
                 </div>
             </div>
 
-            <h3>Error Handling</h3>
+            <h3>Error Handling & Fallbacks</h3>
             <div class="demo-grid">
                 <div class="demo-item">
                     <div class="demo-label">Broken Image URL</div>
@@ -437,13 +453,15 @@
                 </div>
 
                 <div class="demo-item">
-                    <div class="demo-label">Missing Required Attributes</div>
+                    <div class="demo-label">Incomplete Data (Fallback to standard image)</div>
                     <div class="demo-content">
                         <ax-blurest src="https://picsum.photos/400/300?random=8" alt="Missing attributes"></ax-blurest>
                         <p>
                             <small
-                                >This component will not render because it's missing required attributes (src-width,
-                                src-height, blurhash)</small
+                                >When <code>src-width</code>, <code>src-height</code>, or <code>blurhash</code> are not
+                                provided, the component gracefully falls back to rendering as a standard lazy-loading
+                                image. No placeholder will be shown, and the image will appear immediately after it
+                                finishes loading.</small
                             >
                         </p>
                     </div>
@@ -461,7 +479,9 @@
                             blurhash="LKN]Rv%2Tw=w_4%M%M-;%LwY@-P*"
                             alt="BlurHash only"
                         ></ax-blurest>
-                        <p><small>No src attribute - shows only BlurHash placeholder</small></p>
+                        <p>
+                            <small>No <code>src</code> attribute - shows only the BlurHash placeholder.</small>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -547,7 +567,7 @@
                 <li>Requires `BlurhashCssConverter` and `BlurhashUtils` imports</li>
                 <li>Validates BlurHash strings before processing</li>
                 <li>Fallback to gradient placeholder for invalid BlurHash</li>
-                <li>Configurable blur radius and scaling options</li>
+                <li>If placeholder data is incomplete, falls back to standard image rendering</li>
             </ul>
 
             <h3>Debug Features</h3>
