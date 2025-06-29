@@ -128,25 +128,32 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
 
-      - name: Install OpenSSL (macOS)
+      - name: Install Native Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install openssl@3 pkg-config
+          brew install openssl@3 pkg-config sqlite
           echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
           echo "OPENSSL_LIB_DIR=$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:$(brew --prefix sqlite)/lib/pkgconfig" >> $GITHUB_ENV
 
-      - name: Install OpenSSL (Windows)
+      - name: Install Native Dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          vcpkg install openssl:${{ matrix.cfg.platform == 'win32-x64-msvc' && 'x64' || 'x86' }}-windows-static-md
+          # Determine the architecture based on the platform string
+          $arch = "x64"
+          if ("${{ matrix.cfg.platform }}" -ne "win32-x64-msvc") {
+            $arch = "x86"
+          }
+          
+          # Install both openssl and sqlite3 using vcpkg for the correct architecture
+          vcpkg install "openssl:$arch-windows-static-md" "sqlite3:$arch-windows-static-md"
         shell: pwsh
 
-      - name: Install OpenSSL (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config
+      - name: Install Native Dependencies (Linux)
+          if: runner.os == 'Linux'
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y libssl-dev pkg-config libsqlite3-dev
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
