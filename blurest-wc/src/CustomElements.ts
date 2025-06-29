@@ -102,16 +102,16 @@ export class AxBlurest extends PatchedHTMLElement {
     }
 
     private addDebugIndicator() {
-        const blurhashLayer = this.root.querySelector('.blurhash-layer') as HTMLElement;
-        if (blurhashLayer) {
-            blurhashLayer.classList.add('debug-loading');
+        const debugOverlay = this.root.querySelector('.debug-overlay') as HTMLElement;
+        if (debugOverlay) {
+            debugOverlay.classList.add('loading');
         }
     }
 
     private removeDebugIndicator() {
-        const blurhashLayer = this.root.querySelector('.blurhash-layer') as HTMLElement;
-        if (blurhashLayer) {
-            blurhashLayer.classList.remove('debug-loading');
+        const debugOverlay = this.root.querySelector('.debug-overlay') as HTMLElement;
+        if (debugOverlay) {
+            debugOverlay.classList.remove('loading');
         }
     }
 
@@ -196,18 +196,24 @@ export class AxBlurest extends PatchedHTMLElement {
                 .blurhash-backdrop-layer,
                 .blurhash-layer,
                 .image-layer,
-                .error-layer {
+                .error-layer,
+                .debug-overlay {
                     position: absolute;
                     top: 0;
                     left: 0;
                     width: 100%;
                     height: 100%;
-                    object-fit: cover;
                 }
                 
                 .blurhash-backdrop-layer,
                 .blurhash-layer {
                     ${blurhashCSS}
+                    object-fit: cover;
+                }
+
+                .image-layer,
+                .error-layer {
+                    object-fit: cover;
                 }
 
                 .blurhash-backdrop-layer {
@@ -260,6 +266,11 @@ export class AxBlurest extends PatchedHTMLElement {
                     opacity: 0;
                 }
 
+                .debug-overlay {
+                    pointer-events: none;
+                    z-index: 10;
+                }
+
                 .error-layer { background: #ffffff; border: 1px inset #c0c0c0; border-top-color: #808080; border-left-color: #808080; border-right-color: #dfdfdf; border-bottom-color: #dfdfdf; box-shadow: inset 1px 1px 0px #808080, inset -1px -1px 0px #eee; }
                 .icon-container { position: absolute; top: 8px; left: 8px; width: 14px; height: 20px; background: white; border: 1px outset #c0c0c0; border-top-color: #d6d6d6; border-left-color: #d6d6d6; border-right-color: #808080; border-bottom-color: #808080; box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #9f9f9f; }
                 .red-x { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; }
@@ -269,9 +280,36 @@ export class AxBlurest extends PatchedHTMLElement {
                 ${
                     debugMode
                         ? `
-                .blurhash-layer.debug-loading::after { content: 'Loading...'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; z-index: 10; animation: pulse 1.5s ease-in-out infinite; }
+                .debug-overlay.loading::after { 
+                    content: 'Loading...'; 
+                    position: absolute; 
+                    top: 50%; 
+                    left: 50%; 
+                    transform: translate(-50%, -50%); 
+                    background: rgba(0, 0, 0, 0.7); 
+                    color: white; 
+                    padding: 4px 8px; 
+                    border-radius: 4px; 
+                    font-size: 12px; 
+                    font-family: monospace; 
+                    z-index: 10; 
+                    animation: pulse 1.5s ease-in-out infinite; 
+                }
                 @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
-                .container::before { content: 'DEBUG MODE'; position: absolute; top: 4px; left: 4px; background: #ff4444; color: white; padding: 2px 6px; border-radius: 2px; font-size: 10px; font-family: monospace; z-index: 20; opacity: 0.8; }
+                .container::before { 
+                    content: 'DEBUG MODE'; 
+                    position: absolute; 
+                    top: 4px; 
+                    left: 4px; 
+                    background: #ff4444; 
+                    color: white; 
+                    padding: 2px 6px; 
+                    border-radius: 2px; 
+                    font-size: 10px; 
+                    font-family: monospace; 
+                    z-index: 20; 
+                    opacity: 0.8; 
+                }
                 `
                         : ''
                 }
@@ -284,6 +322,7 @@ export class AxBlurest extends PatchedHTMLElement {
                 <div class="error-layer">
                     <div class="icon-container"><div class="red-x"></div></div>
                 </div>
+                ${debugMode ? '<div class="debug-overlay"></div>' : ''}
             </div>
         `;
     }
