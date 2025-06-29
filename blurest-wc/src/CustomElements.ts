@@ -1,6 +1,18 @@
 import BlurhashCssConverter, { BlurhashUtils } from './blurhash';
 
-export class AxBlurest extends HTMLElement {
+class ServerSideHTMLElement {
+    root = {
+        innerHTML: '',
+        querySelector: (_x: string) => null,
+    };
+
+    attachShadow = () => null;
+}
+
+const PatchedHTMLElement =
+    typeof globalThis.Window === 'undefined' ? ((ServerSideHTMLElement as unknown) as typeof HTMLElement) : HTMLElement;
+
+export class AxBlurest extends PatchedHTMLElement {
     static readonly ElementName = 'ax-blurest';
     private root = this.attachShadow({ mode: 'open' });
     private observer: IntersectionObserver | null = null;
