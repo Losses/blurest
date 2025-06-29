@@ -6,9 +6,10 @@
  *
  * BlurHash is a compact representation of a placeholder for an image that can be
  * decoded into a small blurred version using linear gradients in CSS.
- * 
+ *
  * This implementation is based on:
  * https://github.com/JamieMason/blurhash-to-css/
+ * https://github.com/woltapp/blurhash/
  * Under the MIT License
  */
 
@@ -59,34 +60,138 @@ interface BlurhashOptions {
 }
 
 /**
+ * Validation error class for BlurHash operations
+ */
+class ValidationError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'ValidationError';
+    }
+}
+
+/**
  * BlurHash decoder class that handles the conversion from BlurHash strings to pixel data
- *
- * This is a simplified implementation. In a real-world scenario, you would typically
- * use a proper BlurHash decoding library like 'blurhash' npm package.
  */
 class BlurhashDecoder {
     /**
      * Base83 character set used in BlurHash encoding
      */
-    private static readonly BASE83_CHARS =
-        '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~';
+    private static readonly BASE83_CHARS = [
+        '0',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9',
+        'A',
+        'B',
+        'C',
+        'D',
+        'E',
+        'F',
+        'G',
+        'H',
+        'I',
+        'J',
+        'K',
+        'L',
+        'M',
+        'N',
+        'O',
+        'P',
+        'Q',
+        'R',
+        'S',
+        'T',
+        'U',
+        'V',
+        'W',
+        'X',
+        'Y',
+        'Z',
+        'a',
+        'b',
+        'c',
+        'd',
+        'e',
+        'f',
+        'g',
+        'h',
+        'i',
+        'j',
+        'k',
+        'l',
+        'm',
+        'n',
+        'o',
+        'p',
+        'q',
+        'r',
+        's',
+        't',
+        'u',
+        'v',
+        'w',
+        'x',
+        'y',
+        'z',
+        '#',
+        '$',
+        '%',
+        '*',
+        '+',
+        ',',
+        '-',
+        '.',
+        ':',
+        ';',
+        '=',
+        '?',
+        '@',
+        '[',
+        ']',
+        '^',
+        '_',
+        '{',
+        '|',
+        '}',
+        '~',
+    ];
 
     /**
      * Decodes a base83 string to a number
      * @param str - The base83 encoded string
      * @returns The decoded number
      */
-    private static decodeBase83(str: string): number {
+    private static decode83(str: string): number {
         let value = 0;
         for (let i = 0; i < str.length; i++) {
-            const char = str[i];
-            const index = this.BASE83_CHARS.indexOf(char);
-            if (index === -1) {
-                throw new Error(`Invalid base83 character: ${char}`);
+            const c = str[i];
+            const digit = this.BASE83_CHARS.indexOf(c);
+            if (digit === -1) {
+                throw new ValidationError(`Invalid base83 character: ${c}`);
             }
-            value = value * 83 + index;
+            value = value * 83 + digit;
         }
         return value;
+    }
+
+    /**
+     * Converts sRGB to linear RGB
+     * @param value - sRGB value (0-255)
+     * @returns Linear RGB value (0-1)
+     */
+    private static sRGBToLinear(value: number): number {
+        const v = value / 255;
+        if (v <= 0.04045) {
+            return v / 12.92;
+        } else {
+            return Math.pow((v + 0.055) / 1.055, 2.4);
+        }
     }
 
     /**
@@ -94,55 +199,167 @@ class BlurhashDecoder {
      * @param value - Linear RGB value (0-1)
      * @returns sRGB value (0-255)
      */
-    private static linearTosRgb(value: number): number {
+    private static linearTosRGB(value: number): number {
         const v = Math.max(0, Math.min(1, value));
         if (v <= 0.0031308) {
-            return Math.round(v * 12.92 * 255);
+            return Math.trunc(v * 12.92 * 255 + 0.5);
         } else {
-            return Math.round((1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255);
+            return Math.trunc((1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255 + 0.5);
         }
+    }
+
+    /**
+     * Returns the sign of a number
+     * @param n - The number
+     * @returns -1 for negative, 1 for positive or zero
+     */
+    private static sign(n: number): number {
+        return n < 0 ? -1 : 1;
+    }
+
+    /**
+     * Applies sign-preserving power function
+     * @param val - The value
+     * @param exp - The exponent
+     * @returns The result of sign(val) * |val|^exp
+     */
+    private static signPow(val: number, exp: number): number {
+        return this.sign(val) * Math.pow(Math.abs(val), exp);
+    }
+
+    /**
+     * Validates a BlurHash string
+     * @param blurhash - The BlurHash string to validate
+     * @throws {ValidationError} If the BlurHash is invalid
+     */
+    private static validateBlurhash(blurhash: string): void {
+        if (!blurhash || blurhash.length < 6) {
+            throw new ValidationError('The blurhash string must be at least 6 characters');
+        }
+
+        const sizeFlag = this.decode83(blurhash[0]);
+        const numY = Math.floor(sizeFlag / 9) + 1;
+        const numX = (sizeFlag % 9) + 1;
+
+        if (blurhash.length !== 4 + 2 * numX * numY) {
+            throw new ValidationError(
+                `blurhash length mismatch: length is ${blurhash.length} but it should be ${4 + 2 * numX * numY}`
+            );
+        }
+    }
+
+    /**
+     * Decodes DC (average color) component
+     * @param value - The encoded DC value
+     * @returns Array of linear RGB values [r, g, b]
+     */
+    private static decodeDC(value: number): number[] {
+        const intR = value >> 16;
+        const intG = (value >> 8) & 255;
+        const intB = value & 255;
+        return [this.sRGBToLinear(intR), this.sRGBToLinear(intG), this.sRGBToLinear(intB)];
+    }
+
+    /**
+     * Decodes AC (detail) component
+     * @param value - The encoded AC value
+     * @param maximumValue - Maximum value for scaling
+     * @returns Array of linear RGB values [r, g, b]
+     */
+    private static decodeAC(value: number, maximumValue: number): number[] {
+        const quantR = Math.floor(value / (19 * 19));
+        const quantG = Math.floor(value / 19) % 19;
+        const quantB = value % 19;
+
+        return [
+            this.signPow((quantR - 9) / 9, 2.0) * maximumValue,
+            this.signPow((quantG - 9) / 9, 2.0) * maximumValue,
+            this.signPow((quantB - 9) / 9, 2.0) * maximumValue,
+        ];
     }
 
     /**
      * Decodes a BlurHash string into pixel data
      *
-     * Note: This is a simplified implementation for demonstration purposes.
-     * In production, use a proper BlurHash library.
-     *
      * @param blurhash - The BlurHash string to decode
      * @param width - Target width in pixels
      * @param height - Target height in pixels
-     * @param punch - Punch factor for contrast adjustment
+     * @param punch - Punch factor for contrast adjustment (default: 1.0)
      * @returns Array of RGBA pixel data
      */
     static decode(blurhash: string, width: number, height: number, punch: number = 1.0): Uint8Array {
-        if (!blurhash || blurhash.length < 6) {
-            throw new Error('Invalid BlurHash string');
+        this.validateBlurhash(blurhash);
+
+        punch = punch || 1;
+
+        const sizeFlag = this.decode83(blurhash[0]);
+        const numY = Math.floor(sizeFlag / 9) + 1;
+        const numX = (sizeFlag % 9) + 1;
+
+        const quantisedMaximumValue = this.decode83(blurhash[1]);
+        const maximumValue = (quantisedMaximumValue + 1) / 166;
+
+        const colors = new Array(numX * numY);
+
+        for (let i = 0; i < colors.length; i++) {
+            if (i === 0) {
+                const value = this.decode83(blurhash.substring(2, 6));
+                colors[i] = this.decodeDC(value);
+            } else {
+                const value = this.decode83(blurhash.substring(4 + i * 2, 6 + i * 2));
+                colors[i] = this.decodeAC(value, maximumValue * punch);
+            }
         }
 
-        // This is a simplified mock implementation
-        // In reality, you would use the full BlurHash decoding algorithm
-        const pixels = new Uint8Array(width * height * 4);
+        const bytesPerRow = width * 4;
+        const pixels = new Uint8Array(bytesPerRow * height);
 
-        // Generate a simple gradient as a placeholder
-        // Real implementation would decode the actual BlurHash components
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                const index = (y * width + x) * 4;
+                let r = 0;
+                let g = 0;
+                let b = 0;
 
-                // Simple gradient based on position
-                const r = Math.floor((x / width) * 255);
-                const g = Math.floor((y / height) * 255);
-                const b = Math.floor(((x + y) / (width + height)) * 255);
+                for (let j = 0; j < numY; j++) {
+                    const basisY = Math.cos((Math.PI * y * j) / height);
+                    for (let i = 0; i < numX; i++) {
+                        const basis = Math.cos((Math.PI * x * i) / width) * basisY;
+                        const color = colors[i + j * numX];
+                        r += color[0] * basis;
+                        g += color[1] * basis;
+                        b += color[2] * basis;
+                    }
+                }
 
-                pixels[index] = r; // Red
-                pixels[index + 1] = g; // Green
-                pixels[index + 2] = b; // Blue
-                pixels[index + 3] = 255; // Alpha
+                const intR = this.linearTosRGB(r);
+                const intG = this.linearTosRGB(g);
+                const intB = this.linearTosRGB(b);
+
+                pixels[4 * x + 0 + y * bytesPerRow] = intR;
+                pixels[4 * x + 1 + y * bytesPerRow] = intG;
+                pixels[4 * x + 2 + y * bytesPerRow] = intB;
+                pixels[4 * x + 3 + y * bytesPerRow] = 255; // alpha
             }
         }
 
         return pixels;
+    }
+
+    /**
+     * Validates if a BlurHash string is valid
+     * @param blurhash - The BlurHash string to validate
+     * @returns Object with validation result and optional error reason
+     */
+    static isBlurhashValid(blurhash: string): { result: boolean; errorReason?: string } {
+        try {
+            this.validateBlurhash(blurhash);
+            return { result: true };
+        } catch (error) {
+            return {
+                result: false,
+                errorReason: error instanceof Error ? error.message : 'Unknown error',
+            };
+        }
     }
 }
 
@@ -513,23 +730,13 @@ class BlurhashUtils {
      * ```
      */
     static isValidBlurhash(hash: string): boolean {
-        if (!hash || typeof hash !== 'string') {
-            return false;
-        }
-
-        // Basic validation - BlurHash should be at least 6 characters
-        if (hash.length < 6) {
-            return false;
-        }
-
-        // Check if all characters are valid base83 characters
-        const validChars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~';
-        return hash.split('').every((char) => validChars.includes(char));
+        const validation = BlurhashDecoder.isBlurhashValid(hash);
+        return validation.result;
     }
 }
 
 // Export the main converter class and utilities
-export { BlurhashCssConverter, BlurhashUtils, type BlurhashCss, type BlurhashOptions, type RgbColor };
+export { BlurhashCssConverter, BlurhashUtils, BlurhashDecoder, type BlurhashCss, type BlurhashOptions, type RgbColor };
 
 // Default export for convenient importing
 export default BlurhashCssConverter;
