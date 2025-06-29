@@ -218,7 +218,7 @@ export class AxBlurest extends PatchedHTMLElement {
 
                 .blurhash-backdrop-layer {
                     opacity: 1;
-                    transition: opacity 500ms ease-in-out 100ms;
+                    transition: opacity 300ms ease-in-out 200ms;
                 }
 
                 .blurhash-layer {
