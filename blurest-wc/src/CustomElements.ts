@@ -1,4 +1,4 @@
-import BlurhashCssConverter, { BlurhashUtils } from './blurhash';
+import BlurhashCssConverter, { BlurhashUtils } from './blurhash.js';
 
 class ServerSideHTMLElement {
     root = {
