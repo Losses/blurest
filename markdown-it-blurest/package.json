@@ -20,7 +20,8 @@
     "build:esm": "bun build index.ts --outfile dist/index.js --format=esm --packages=external --sourcemap=inline",
     "build:cjs": "bun build index.ts --outfile dist/index.cjs.js --format=cjs --packages=external --sourcemap=inline",
     "build:dts": "tsc --emitDeclarationOnly --project tsconfig.types.json",
-    "build": "bun run build:esm && bun run build:cjs && bun run build:dts"
+    "build": "bun run build:esm && bun run build:cjs && bun run build:dts",
+    "prepack": "bun run build"
   },
   "dependencies": {
     "@fuuck/blurest-core": "workspace:*"
