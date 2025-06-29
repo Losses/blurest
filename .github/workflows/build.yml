@@ -4,134 +4,344 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: 'The branch, tag, or SHA to check out'
+        description: "The branch, tag, or SHA to check out"
         required: true
         type: string
-      update-version:
-        description: 'Update version before building?'
-        required: false
-        type: boolean
-        default: false
-      version:
-        description: 'Version update (ignored if update-version is false)'
-        required: false
-        type: string
-        default: 'patch'
-      github-release:
-        description: 'Publish GitHub release?'
-        required: false
-        type: boolean
-        default: false
-      tag:
-        description: 'The release tag (ignored if github-release is false)'
-        required: false
-        type: string
-        default: ''
 
 jobs:
   matrix:
-    name: Matrix
+    name: Generate Build Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.result }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
-      - name: Setup Neon Environment
-        uses: ./.github/actions/setup
-        with:
-          use-rust: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      # This step requires node_modules in blurest-core
+      - name: Install Root Dependencies (for neon cli lookup)
+        working-directory: ./blurest-core
+        run: bun install --frozen-lockfile
+
       - name: Look Up Matrix Data
         id: matrixData
+        working-directory: ./blurest-core
         shell: bash
-        run: echo "json=$(npx neon show ci github | jq -rc)" | tee -a $GITHUB_OUTPUT
+        run: |
+          echo "Looking up matrix data using bunx neon..."
+          JSON_OUTPUT=$(bunx neon show ci github | jq -rc .)
+          echo "Raw JSON Output: $JSON_OUTPUT" # Debug output
+          if [[ -z "$JSON_OUTPUT" || "$JSON_OUTPUT" == "null" ]]; then
+            echo "::error::Failed to get matrix data from 'bunx neon show ci github'. Output was empty or null."
+            exit 1
+          fi
+          # Ensure output is properly escaped for multiline JSON
+          echo "json<<EOF" >> $GITHUB_OUTPUT
+          echo "$JSON_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Compute Matrix
         id: matrix
         uses: actions/github-script@v7
         with:
           script: |
-            const platforms = ${{ steps.matrixData.outputs.json }};
-            const macOS = platforms.macOS.map(platform => {
-              return { os: "macos-latest", platform, script: "build" };
-            });
-            const windows = platforms.Windows.map(platform => {
-              return { os: "windows-latest", platform, script: "build" };
-            });
-            const linux = platforms.Linux.map(platform => {
-              return { os: "ubuntu-latest", platform, script: "cross" };
-            });
-            return [...macOS, ...windows, ...linux];
+            const rawJson = `${{ steps.matrixData.outputs.json }}`;
+            console.log("Raw JSON received in script:", rawJson);
+            if (!rawJson || rawJson === 'null') { // Check for null string too
+              core.setFailed("Matrix data JSON is empty or null.");
+              return;
+            }
+            let platforms;
+            try {
+              // Trim potential whitespace/newlines around the JSON string
+              platforms = JSON.parse(rawJson.trim());
+            } catch (e) {
+              core.setFailed(`Failed to parse matrix data JSON: ${e.message}. JSON was: ${rawJson}`);
+              return;
+            }
+
+            const matrix = [];
+            // Add optional chaining for safety
+            if (platforms?.macOS) {
+              matrix.push(...platforms.macOS.map(platform => ({ 
+                os: "macos-latest", 
+                platform, 
+                script: "build" 
+              })));
+            }
+            if (platforms?.Windows) {
+              matrix.push(...platforms.Windows.map(platform => ({ 
+                os: "windows-latest", 
+                platform, 
+                script: "build" 
+              })));
+            }
+            if (platforms?.Linux) {
+              // Map Linux platforms to appropriate runners and native builds
+              matrix.push(...platforms.Linux.map(platform => {
+                // Determine runner based on architecture
+                let runner = "ubuntu-latest"; // Default for x64
+                if (platform.includes('arm64') || platform.includes('aarch64')) {
+                  runner = "ubuntu-24.04-arm";
+                } else if (platform.includes('x64') || platform.includes('x86_64')) {
+                  runner = "ubuntu-latest";
+                }
+                
+                return { 
+                  os: runner, 
+                  platform, 
+                  script: "build"
+                };
+              }));
+            }
+
+            console.log("Computed Matrix:", matrix);
+            if (matrix.length === 0) {
+               console.log("Warning: Computed build matrix is empty. Check 'neon show ci github' output and logic.");
+            }
+            // Output even if empty, rely on `if` condition in downstream jobs
+            return matrix;
 
   binaries:
-    name: Binaries
+    name: Build Binaries (${{ matrix.cfg.platform }})
     needs: [matrix]
+    # Check if the matrix json string is not empty '[]' or null/empty string.
+    # fromJSON will fail on empty string, so checking needs.matrix.outputs.matrix itself is better.
+    if: ${{ needs.matrix.outputs.matrix != '[]' && needs.matrix.outputs.matrix != '' && needs.matrix.outputs.matrix != null }}
     strategy:
+      fail-fast: false
       matrix:
         cfg: ${{ fromJSON(needs.matrix.outputs.matrix) }}
     runs-on: ${{ matrix.cfg.os }}
-    permissions:
-      contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
-      - name: Setup Neon Environment
-        id: neon
-        uses: ./.github/actions/setup
-        with:
-          use-cross: ${{ matrix.cfg.script == 'cross' }}
-          platform: ${{ matrix.cfg.platform }}
-      - name: Update Version
-        if: ${{ inputs.update-version }}
-        shell: bash
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
         run: |
-          git config --global user.name $ACTIONS_USER
-          git config --global user.email $ACTIONS_EMAIL
-          npm version ${{ inputs.version }} -m "v%s"
-      - name: Build
+          brew install openssl@3 pkg-config
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig" >> $GITHUB_ENV
+
+      - name: Install OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install openssl:${{ matrix.cfg.platform == 'win32-x64-msvc' && 'x64' || 'x86' }}-windows-static-md
+        shell: pwsh
+
+      - name: Install OpenSSL (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Dependencies
+        working-directory: ./blurest-core
+        run: bun install --frozen-lockfile
+
+      - name: Build Binary (Native)
+        working-directory: ./blurest-core
         shell: bash
         env:
-          CARGO_BUILD_TARGET: ${{ steps.neon.outputs.target }}
           NEON_BUILD_PLATFORM: ${{ matrix.cfg.platform }}
-        run: npm run ${{ matrix.cfg.script }}
-      - name: Pack
-        id: pack
+        run: bun run ${{ matrix.cfg.script }}
+
+      - name: Copy Artifact to Platform Directory
+        working-directory: ./blurest-core # Ensure we are in the correct directory
         shell: bash
         run: |
-          mkdir -p dist
-          echo filename=$(basename $(npm pack ./platforms/${{ matrix.cfg.platform }} --silent --pack-destination=./dist --json | jq -r '.[0].filename')) | tee -a $GITHUB_OUTPUT
-      - name: Release
-        if: ${{ inputs.github-release }}
-        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564 # v2.0.4
+          CRATE_NAME="blurest-core"
+          # Cargo usually replaces hyphens with underscores for the library filename
+          CRATE_LIB_NAME=$(echo "$CRATE_NAME" | sed 's/-/_/g')
+          TARGET_DIR="../target/release" # Simplified path for native builds
+          PLATFORM_DIR="./platforms/${{ matrix.cfg.platform }}"
+          DEST_FILE="${PLATFORM_DIR}/index.node"
+
+          SOURCE_FILE=""
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            SOURCE_FILE="${TARGET_DIR}/lib${CRATE_LIB_NAME}.so"
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            SOURCE_FILE="${TARGET_DIR}/lib${CRATE_LIB_NAME}.dylib"
+          elif [[ "${{ runner.os }}" == "Windows" ]]; then
+            # Windows uses .dll and typically doesn't have the 'lib' prefix for cdylib
+            SOURCE_FILE="${TARGET_DIR}/${CRATE_LIB_NAME}.dll"
+          else
+            echo "::error::Unsupported runner OS: ${{ runner.os }}"
+            exit 1
+          fi
+
+          echo "Attempting to copy artifact from: ${SOURCE_FILE}"
+          echo "Destination: ${DEST_FILE}"
+          echo "Target directory contents:"
+          ls -l "${TARGET_DIR}" || echo "Target directory listing failed."
+
+          # Check if the source file exists
+          if [[ ! -f "$SOURCE_FILE" ]]; then
+            echo "::error::Source artifact file not found: ${SOURCE_FILE}"
+             # Try alternative common naming (e.g., without lib prefix on macOS/Linux)
+            if [[ "${{ runner.os }}" == "Linux" || "${{ runner.os }}" == "macOS" ]]; then
+               ALT_SOURCE_FILE="${TARGET_DIR}/${CRATE_LIB_NAME}.$( [[ "${{ runner.os }}" == "Linux" ]] && echo "so" || echo "dylib" )"
+               if [[ -f "$ALT_SOURCE_FILE" ]]; then
+                  echo "Found alternative source file: ${ALT_SOURCE_FILE}"
+                  SOURCE_FILE="$ALT_SOURCE_FILE"
+               else
+                  echo "Alternative source file also not found: ${ALT_SOURCE_FILE}"
+                  exit 1
+               fi
+            else
+              exit 1
+            fi
+          fi
+
+          # Ensure the destination platform directory exists
+          mkdir -p "$PLATFORM_DIR"
+
+          echo "Copying ${SOURCE_FILE} to ${DEST_FILE}"
+          cp "$SOURCE_FILE" "$DEST_FILE"
+
+          # Verify copy
+          if [[ ! -f "$DEST_FILE" ]]; then
+            echo "::error::Failed to copy artifact to ${DEST_FILE}"
+            exit 1
+          fi
+          echo "Artifact copied successfully to ${DEST_FILE}"
+
+      - name: Pack Platform Binary
+        id: pack
+        working-directory: ./blurest-core
+        shell: bash
+        run: |
+          echo "*** Packing Platform Binary for ${{ matrix.cfg.platform }} ***"
+          # Pack directly into a known temporary directory within the workspace
+          PACK_DIR="./pack-output"
+          mkdir -p "$PACK_DIR"
+          PLATFORM_SUBDIR="./platforms/${{ matrix.cfg.platform }}"
+          if [[ ! -d "$PLATFORM_SUBDIR" ]]; then
+            echo "::error::Platform directory ${PLATFORM_SUBDIR} not found after build."
+            ls -l ./platforms
+            exit 1
+          fi
+          # Pack from platform subdir, output to workspace pack dir
+          cd "${PLATFORM_SUBDIR}"
+          PACK_OUTPUT_ABSPATH=$(bun pm pack --destination "../../${PACK_DIR}" | grep '\.tgz$' | head -n 1)
+          if [[ -z "$PACK_OUTPUT_ABSPATH" ]]; then
+            echo "::error::Failed to capture packed filename path from bun output in $(pwd)."
+            exit 1
+          fi
+          FILENAME=$(basename "$PACK_OUTPUT_ABSPATH")
+          echo "Packed ${FILENAME} to ${GITHUB_WORKSPACE}/blurest-core/${PACK_DIR}"
+          # Verify file existence relative to working dir
+          if [[ ! -f "../../${PACK_DIR}/${FILENAME}" ]]; then
+            echo "::error::Verification failed: ${FILENAME} not found in ${GITHUB_WORKSPACE}/blurest-core/${PACK_DIR}"
+            ls -l "../../${PACK_DIR}"
+            exit 1
+          fi
+          echo "filename=${FILENAME}" | tee -a $GITHUB_OUTPUT # Output relative filename
+
+      - name: Upload Platform Package Artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: ./dist/${{ steps.pack.outputs.filename }}
-          tag_name: ${{ inputs.tag }}
+          # Use a unique name for each platform's artifact
+          name: binary-package-${{ matrix.cfg.platform }}
+          # Path is relative to GITHUB_WORKSPACE
+          path: ${{ github.workspace }}/blurest-core/pack-output/${{ steps.pack.outputs.filename }}
+          if-no-files-found: error
+          retention-days: 1 # Keep artifacts only for a short time
 
   main:
-    name: Main
-    needs: [matrix]
+    name: Build Main Package
+    needs: [matrix] # Depends only on matrix generation
+    # Only run if matrix is valid (same condition as binaries job)
+    if: ${{ needs.matrix.outputs.matrix != '[]' && needs.matrix.outputs.matrix != '' && needs.matrix.outputs.matrix != null }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
-      - name: Setup Neon Environment
-        uses: ./.github/actions/setup
-        with:
-          use-rust: false
-      - name: Pack
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install Dependencies
+        working-directory: ./blurest-core
+        run: bun install --frozen-lockfile
+
+      - name: Pack Main Package
         id: pack
+        working-directory: ./blurest-core
         shell: bash
         run: |
-          mkdir -p dist
-          echo "filename=$(npm pack --silent --pack-destination=./dist)" | tee -a $GITHUB_OUTPUT
-      - name: Release
-        if: ${{ inputs.github-release }}
-        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564 # v2.0.4
+          echo "*** Packing Main Package ***"
+          PACK_DIR="./pack-output"
+          mkdir -p "$PACK_DIR"
+          echo "Packing from $(pwd) to ${PACK_DIR}"
+          PACK_OUTPUT_ABSPATH=$(bun pm pack --destination "${PACK_DIR}" | grep '\.tgz$' | head -n 1)
+          if [[ -z "$PACK_OUTPUT_ABSPATH" ]]; then
+            echo "::error::Failed to capture packed filename path from bun output in $(pwd)."
+            exit 1
+          fi
+          FILENAME=$(basename "$PACK_OUTPUT_ABSPATH")
+          echo "Packed ${FILENAME} to ${GITHUB_WORKSPACE}/blurest-core/${PACK_DIR}"
+          # Verify file existence relative to working dir
+          if [[ ! -f "${PACK_DIR}/${FILENAME}" ]]; then
+            echo "::error::Verification failed: ${FILENAME} not found in ${PACK_DIR}"
+            ls -l "${PACK_DIR}"
+            exit 1
+          fi
+          echo "filename=${FILENAME}" | tee -a $GITHUB_OUTPUT # Output relative filename
+
+      - name: Upload Main Package Artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: ./dist/${{ steps.pack.outputs.filename }}
-          tag_name: ${{ inputs.tag }}
+          name: main-package # Specific name for the main package artifact
+          # Path is relative to GITHUB_WORKSPACE
+          path: ${{ github.workspace }}/blurest-core/pack-output/${{ steps.pack.outputs.filename }}
+          if-no-files-found: error
+          retention-days: 1 # Keep artifacts only for a short time
+
+  collect-and-upload:
+    name: Collect and Upload Packages
+    # Depend on all binary builds and the main package build
+    needs: [binaries, main]
+    # Run if matrix generation succeeded, even if some builds failed?
+    # No, let's run only if ALL dependencies succeeded to ensure a complete package set.
+    if: success() # Runs only if 'matrix', 'binaries' (all instances), and 'main' succeeded
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # No name specified = download all artifacts from this workflow run
+          path: ./collected-packages # Download into this directory
+
+      - name: List downloaded files
+        run: |
+          echo "Listing contents of ./collected-packages"
+          ls -lR ./collected-packages
+          echo "Collected tgz files:"
+          find ./collected-packages -name '*.tgz'
+
+      - name: Upload All Packages Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages # Final artifact name the release workflow will download
+          # Path should find all tgz files within the download directory and its subdirectories
+          path: ./collected-packages/**/*.tgz
+          if-no-files-found: error # Fail if download/globbing failed

@@ -2,134 +2,124 @@ name: Release
 
 run-name: |
   ${{ (inputs.dryrun && 'Dry run')
-   || format('Release: {0}', (inputs.version == 'custom' && inputs.custom) || inputs.version) }}
+   || 'Release' }}
 
 on:
   workflow_dispatch:
     inputs:
       dryrun:
-        description: 'Dry run (no npm publish)'
+        description: "Dry run (builds, checks, but no tag/publish/release)"
         required: false
         type: boolean
         default: true
-      version:
-        description: 'Version component to update (or "custom" to provide exact version)'
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-          - prepatch
-          - preminor
-          - premajor
-          - prerelease
-          - custom
-      custom:
-        description: 'Custom version'
-        required: false
-        default: ''
 
 jobs:
   setup:
     name: Setup
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Needed for version bump, commit, tag, push
     outputs:
       dryrun: ${{ steps.dryrun.outputs.dryrun }}
       publish: ${{ steps.publish.outputs.publish }}
-      ref: ${{ steps.tag.outputs.tag || github.event.repository.default_branch }}
-      tag: ${{ steps.tag.outputs.tag || '' }}
+      ref: ${{ steps.tag.outputs.ref || github.ref }} # ref will be the tag name if not dryrun
+      tag: ${{ steps.tag.outputs.tag || '' }} # The actual tag name (e.g., v1.0.1)
     steps:
-      - name: Validate Workflow Inputs
-        if: ${{ inputs.version == 'custom' && inputs.custom == '' }}
-        shell: bash
-        run: |
-          echo '::error::No custom version number provided'
-          exit 1
       - id: dryrun
-        name: Validate Dry Run Event
-        if: ${{ inputs.dryrun }}
+        name: Set Dry Run Output
         shell: bash
-        run: echo dryrun=true | tee -a $GITHUB_OUTPUT
+        run: echo "dryrun=${{ inputs.dryrun }}" | tee -a $GITHUB_OUTPUT
+
       - id: publish
-        name: Validate Publish Event
-        if: ${{ !inputs.dryrun }}
+        name: Validate Publish Event and Set Output
         shell: bash
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ !inputs.dryrun && secrets.NPM_TOKEN || 'dummy' }}
         run: |
-          if [[ -z $NPM_TOKEN ]]; then
-            echo "::error::Secret NPM_TOKEN is not defined for this GitHub repo."
-            echo "::error::To publish to npm, this action requires:"
-            echo "::error:: • an npm access token;"
-            echo "::error:: • with Read-Write access to this project's npm packages;"
-            echo "::error:: • stored as a repo secret named NPM_TOKEN."
-            echo "::error::See https://docs.npmjs.com/about-access-tokens for info about creating npm tokens."
-            echo "::error:: 💡 The simplest method is to create a Classic npm token of type Automation."
-            echo "::error:: 💡 For greater security, consider using a Granual access token."
-            echo "::error::See https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions for info about how to store GitHub repo secrets."
+          if [[ "${{ !inputs.dryrun }}" == "true" && "$NPM_TOKEN" == "dummy" ]]; then
+            echo "::error::Secret NPM_TOKEN is not defined for a non-dry run."
             exit 1
           fi
-          echo publish=true | tee -a $GITHUB_OUTPUT
+          # Publish is true if it's NOT a dry run
+          echo "publish=${{ !inputs.dryrun }}" | tee -a $GITHUB_OUTPUT
+
       - name: Checkout Code
-        uses: actions/checkout@v3
-      - name: Setup Neon Environment
-        uses: ./.github/actions/setup
+        uses: actions/checkout@v4
         with:
-          use-rust: false
-      - name: Tag Release
-        if: ${{ !inputs.dryrun }}
-        id: tag
-        shell: bash
-        run: |
-          git config --global user.name $ACTIONS_USER
-          git config --global user.email $ACTIONS_EMAIL
-          npm version -m 'v%s' '${{ (inputs.version == 'custom' && inputs.custom) || inputs.version }}'
-          git push --follow-tags
-          echo tag=$(git describe --abbrev=0) | tee -a $GITHUB_OUTPUT
+          fetch-depth: 0 # Needed for version bump and tagging
+          # Use a token that can push for the version bump commit/tag
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }} # Use PAT if pushing to protected branches requires it
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
 
   build:
-    name: Build
+    name: Build Packages
     needs: [setup]
-    permissions:
-      contents: write
     uses: ./.github/workflows/build.yml
     with:
+      # Use the tag ref created in setup if not dryrun, otherwise use original ref
       ref: ${{ needs.setup.outputs.ref }}
-      tag: ${{ needs.setup.outputs.tag }}
-      update-version: ${{ !!needs.setup.outputs.dryrun }}
-      version: ${{ (inputs.version == 'custom' && inputs.custom) || inputs.version }}
-      github-release: ${{ !!needs.setup.outputs.publish }}
 
   publish:
-    name: Publish
-    if: ${{ needs.setup.outputs.publish }}
-    needs: [setup, build]
+    name: Publish to npm
+    # Only run if NOT dry run AND build succeeded
+    if: ${{ needs.setup.outputs.publish == 'true' && needs.build.result == 'success' }}
+    needs: [setup, build] # build job includes collect-and-upload implicitly
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Download Final Build Artifacts
+        uses: actions/download-artifact@v4
         with:
-          ref: ${{ needs.setup.outputs.ref }}
-      - name: Setup Neon Environment
-        uses: ./.github/actions/setup
-        with:
-          use-rust: false
-      - name: Fetch
-        uses: robinraju/release-downloader@c39a3b234af58f0cf85888573d361fb6fa281534 # v1.10
-        with:
-          tag: ${{ needs.setup.outputs.tag }}
-          fileName: "*.tgz"
-          out-file-path: ./dist
-      - name: Publish
+          name: packages # Name specified in build.yml's collect-and-upload step
+          path: ./dist # Download to ./dist directory
+
+      - name: List Downloaded Files
+        run: |
+          echo "Listing contents of ./dist"
+          ls -lR ./dist
+
+      - name: Publish Packages to NPM
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          for p in ./dist/*.tgz ; do
-            npm publish --access public $p
-          done
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          echo "@fuuck:registry=https://registry.npmjs.org/" >> ~/.npmrc
+          echo "Explicitly configured npm auth via ~/.npmrc"
+
+          # Check if any tgz files exist *before* starting the loop
+          if ! find ./dist -name '*.tgz' -print -quit | grep -q .; then
+             echo "::error::No .tgz files found in ./dist or its subdirectories to publish."
+             exit 1
+          fi
+
+          published_count=0
+          # Use Process Substitution <(...) to feed find results into the loop
+          # This avoids running the while loop in a subshell
+          while IFS= read -r -d $'\0' package_path; do
+            echo "Publishing ${package_path} using 'bunx npm publish'..."
+            if bunx npm publish "$package_path" --access public; then
+              echo "Successfully published ${package_path}"
+              published_count=$((published_count + 1)) # Now updates the parent shell variable
+            else
+              echo "::error::Failed to publish ${package_path}"
+              # Since the main shell has -e, this exit will fail the entire step
+              exit 1
+            fi
+          done < <(find ./dist -name '*.tgz' -print0) # <<< Note the syntax here
+
+          # This final check should now work correctly
+          # It's mainly a safeguard; the loop's exit 1 or successful completion is primary
+          if [[ "$published_count" -eq 0 ]]; then
+            echo "::error::Loop completed, but counter is still zero. This shouldn't happen if files were found."
+            exit 1
+          fi
+
+          echo "Successfully published $published_count packages using npm."
+          rm -f ~/.npmrc
