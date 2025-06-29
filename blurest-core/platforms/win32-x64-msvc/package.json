@@ -1,7 +1,7 @@
 {
   "name": "@fuuck/blurest-core-win32-x64-msvc",
   "description": "Prebuilt binary package for `blurest` on `win32-x64-msvc`.",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "os": [
     "win32"
   ],

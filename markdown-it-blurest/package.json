@@ -2,7 +2,7 @@
   "name": "@fuuck/markdown-it-blurest",
   "module": "index.ts",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "exports": {
     ".": {
       "import": "./dist/index.js",
