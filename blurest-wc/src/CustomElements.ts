@@ -118,26 +118,44 @@ export class AxBlurest extends HTMLElement {
     }
 
     render() {
+        const src = this.getAttribute('src');
         const srcWidth = this.getAttribute('src-width');
         const srcHeight = this.getAttribute('src-height');
         const blurhash = this.getAttribute('blurhash');
+        const alt = this.getAttribute('alt') || '';
+        const renderWidth = this.getAttribute('render-width');
+        const debugMode = this.getAttribute('debug') !== null;
 
-        if (!srcWidth || !srcHeight || !blurhash) {
+        const hasCompleteData = srcWidth && srcHeight && blurhash;
+
+        if (!hasCompleteData) {
             this.root.innerHTML = `
                 <style>
-                    :host { display: inline-block; width: 0; height: 0; overflow: hidden; }
+                    :host {
+                        display: inline-block;
+                        line-height: 0;
+                        ${renderWidth ? `width: ${renderWidth}px;` : 'width: 100%;'}
+                        height: auto;
+                    }
                     :host([block]) { display: block; } :host([inline-block]) { display: inline-block; }
                     :host([flex]) { display: flex; } :host([inline-flex]) { display: inline-flex; }
                     :host([grid]) { display: grid; } :host([inline-grid]) { display: inline-grid; }
+
+                    .image-layer {
+                        opacity: 0;
+                        width: 100%;
+                        height: auto;
+                        display: block;
+                    }
+
+                    .image-layer.loaded {
+                        opacity: 1;
+                    }
                 </style>
+                ${src ? `<img class="image-layer" src="" alt="${alt}" data-src="${src}">` : ''}
             `;
             return;
         }
-
-        const renderWidth = this.getAttribute('render-width');
-        const src = this.getAttribute('src');
-        const alt = this.getAttribute('alt') || '';
-        const debugMode = this.getAttribute('debug') !== null;
 
         const aspectRatio = parseFloat(srcWidth) / parseFloat(srcHeight);
         const blurhashCSS = this.generateBlurhashCSS(blurhash, aspectRatio);
@@ -299,7 +317,7 @@ export class AxBlurest extends HTMLElement {
             const loadDuration = this.loadStartTime ? Date.now() - this.loadStartTime : 999;
             const debugMode = this.getAttribute('debug') !== null;
 
-            if (loadDuration < 200) {
+            if (loadDuration < 200 && blurhashLayer) {
                 imageLayer.classList.add('no-animation');
                 if (debugMode) console.log(`[AxBlurest Debug] Image loaded in ${loadDuration}ms. Skipping animation.`);
             }
