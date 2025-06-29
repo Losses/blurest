@@ -1,6 +1,6 @@
 {
   "name": "@fuuck/blurest-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "",
   "main": "./lib/index.cjs",
   "scripts": {
@@ -30,7 +30,12 @@
   },
   "types": "./lib/index.d.cts",
   "files": [
-    "lib/**/*.?({c,m}){t,j}s"
+    "lib/index.cjs",
+    "lib/index.d.cts",
+    "lib/index.d.mts",
+    "lib/index.mjs",
+    "lib/load.cjs",
+    "lib/load.d.cts"
   ],
   "neon": {
     "type": "library",
@@ -49,10 +54,10 @@
     "@neon-rs/load": "^0.1.82"
   },
   "optionalDependencies": {
-    "@fuuck/blurest-core-win32-x64-msvc": "0.1.0",
-    "@fuuck/blurest-core-darwin-x64": "0.1.0",
-    "@fuuck/blurest-core-darwin-arm64": "0.1.0",
-    "@fuuck/blurest-core-linux-x64-gnu": "0.1.0",
-    "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0"
+    "@fuuck/blurest-core-win32-x64-msvc": "0.1.1",
+    "@fuuck/blurest-core-darwin-x64": "0.1.1",
+    "@fuuck/blurest-core-darwin-arm64": "0.1.1",
+    "@fuuck/blurest-core-linux-x64-gnu": "0.1.1",
+    "@fuuck/blurest-core-linux-arm64-gnu": "0.1.1"
   }
 }

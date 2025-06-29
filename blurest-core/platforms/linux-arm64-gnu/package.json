@@ -1,7 +1,7 @@
 {
   "name": "@fuuck/blurest-core-linux-arm64-gnu",
   "description": "Prebuilt binary package for `blurest` on `linux-arm64-gnu`.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "os": [
     "linux"
   ],

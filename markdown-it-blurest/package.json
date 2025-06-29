@@ -2,7 +2,7 @@
   "name": "@fuuck/markdown-it-blurest",
   "module": "index.ts",
   "type": "module",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "dependencies": {
     "@fuuck/blurest-core": "workspace:*"
   },
@@ -14,6 +14,11 @@
     }
   },
   "types": "dist/index.d.ts",
+  "files": [
+    "dist/index.cjs.js",
+    "dist/index.js",
+    "dist/index.d.ts"
+  ],
   "scripts": {
     "build:esm": "bun build index.ts --outfile dist/index.js --format=esm --packages=external --sourcemap=inline",
     "build:cjs": "bun build index.ts --outfile dist/index.cjs.js --format=cjs --packages=external --sourcemap=inline",
