@@ -6,6 +6,7 @@ export class AxBlurest extends HTMLElement {
     private observer: IntersectionObserver | null = null;
     private isInViewport = false;
     private loadingTimer: number | null = null;
+    private loadStartTime: number | null = null;
 
     isImageLoaded: boolean = false;
     isImageError: boolean = false;
@@ -72,7 +73,6 @@ export class AxBlurest extends HTMLElement {
             clearTimeout(this.loadingTimer);
             this.loadingTimer = null;
             this.removeDebugIndicator();
-
             const debugMode = this.getAttribute('debug') !== null;
             if (debugMode) {
                 console.log('[AxBlurest Debug] Element left viewport, cancelled pending image load');
@@ -125,18 +125,10 @@ export class AxBlurest extends HTMLElement {
         if (!srcWidth || !srcHeight || !blurhash) {
             this.root.innerHTML = `
                 <style>
-                    :host {
-                        display: inline-block;
-                        width: 0;
-                        height: 0;
-                        overflow: hidden;
-                    }
-                    :host([block]) { display: block; }
-                    :host([inline-block]) { display: inline-block; }
-                    :host([flex]) { display: flex; }
-                    :host([inline-flex]) { display: inline-flex; }
-                    :host([grid]) { display: grid; }
-                    :host([inline-grid]) { display: inline-grid; }
+                    :host { display: inline-block; width: 0; height: 0; overflow: hidden; }
+                    :host([block]) { display: block; } :host([inline-block]) { display: inline-block; }
+                    :host([flex]) { display: flex; } :host([inline-flex]) { display: inline-flex; }
+                    :host([grid]) { display: grid; } :host([inline-grid]) { display: inline-grid; }
                 </style>
             `;
             return;
@@ -160,13 +152,9 @@ export class AxBlurest extends HTMLElement {
                     aspect-ratio: ${aspectRatio};
                     overflow: hidden;
                 }
-
-                :host([block]) { display: block; }
-                :host([inline-block]) { display: inline-block; }
-                :host([flex]) { display: flex; }
-                :host([inline-flex]) { display: inline-flex; }
-                :host([grid]) { display: grid; }
-                :host([inline-grid]) { display: inline-grid; }
+                :host([block]) { display: block; } :host([inline-block]) { display: inline-block; }
+                :host([flex]) { display: flex; } :host([inline-flex]) { display: inline-flex; }
+                :host([grid]) { display: grid; } :host([inline-grid]) { display: inline-grid; }
 
                 .container {
                     position: relative;
@@ -184,21 +172,40 @@ export class AxBlurest extends HTMLElement {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
-                    transition: opacity 0.3s ease-in-out;
                 }
 
                 .blurhash-layer {
                     opacity: 1;
+                    transition: opacity 500ms ease-in-out;
                     ${blurhashCSS}
                 }
 
-                .image-layer,
                 .error-layer {
                     opacity: 0;
                     pointer-events: none;
+                    transition: opacity 300ms ease-in-out;
                 }
 
-                .image-layer.loaded,
+                .image-layer {
+                    opacity: 0;
+                    filter: blur(30px);
+                    transform: scale(1.1);
+                    transition: opacity 400ms ease-in-out,
+                                filter 600ms cubic-bezier(0.4, 0, 0.2, 1) 150ms,
+                                transform 600ms cubic-bezier(0.4, 0, 0.2, 1) 150ms;
+                }
+
+                .image-layer.loaded {
+                    opacity: 1;
+                    filter: blur(0px);
+                    transform: scale(1);
+                    pointer-events: auto;
+                }
+
+                .image-layer.no-animation {
+                    transition: none;
+                }
+
                 .error-layer.visible {
                     opacity: 1;
                     pointer-events: auto;
@@ -208,98 +215,18 @@ export class AxBlurest extends HTMLElement {
                     opacity: 0;
                 }
 
-                .error-layer {
-                    background: #ffffff;
-                    border: 1px inset #c0c0c0;
-                    border-top-color: #808080;
-                    border-left-color: #808080;
-                    border-right-color: #dfdfdf;
-                    border-bottom-color: #dfdfdf;
-                    box-shadow: inset 1px 1px 0px #808080, inset -1px -1px 0px #ffffff;
-                }
-
-                .icon-container {
-                    position: absolute;
-                    top: 8px;
-                    left: 8px;
-                    width: 14px;
-                    height: 20px;
-                    background: white;
-                    border: 1px outset #c0c0c0;
-                    border-top-color: #d6d6d6;
-                    border-left-color: #d6d6d6;
-                    border-right-color: #808080;
-                    border-bottom-color: #808080;
-                    box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #9f9f9f;
-                }
-
-                .red-x {
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    width: 6px;
-                    height: 6px;
-                }
-
-                .red-x::before,
-                .red-x::after {
-                    content: "";
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    width: 8px;
-                    height: 1.25px;
-                    background: #ff0000;
-                    transform-origin: center;
-                }
-
-                .red-x::before {
-                    transform: translate(-50%, -50%) rotate(45deg);
-                }
-
-                .red-x::after {
-                    transform: translate(-50%, -50%) rotate(-45deg);
-                }
-
+                .error-layer { background: #ffffff; border: 1px inset #c0c0c0; border-top-color: #808080; border-left-color: #808080; border-right-color: #dfdfdf; border-bottom-color: #dfdfdf; box-shadow: inset 1px 1px 0px #808080, inset -1px -1px 0px #ffffff; }
+                .icon-container { position: absolute; top: 8px; left: 8px; width: 14px; height: 20px; background: white; border: 1px outset #c0c0c0; border-top-color: #d6d6d6; border-left-color: #d6d6d6; border-right-color: #808080; border-bottom-color: #808080; box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #9f9f9f; }
+                .red-x { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; }
+                .red-x::before, .red-x::after { content: ""; position: absolute; top: 50%; left: 50%; width: 8px; height: 1.25px; background: #ff0000; transform-origin: center; }
+                .red-x::before { transform: translate(-50%, -50%) rotate(45deg); }
+                .red-x::after { transform: translate(-50%, -50%) rotate(-45deg); }
                 ${
                     debugMode
                         ? `
-                .blurhash-layer.debug-loading::after {
-                    content: 'Loading...';
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: rgba(0, 0, 0, 0.7);
-                    color: white;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    font-family: monospace;
-                    z-index: 10;
-                    animation: pulse 1.5s ease-in-out infinite;
-                }
-
-                @keyframes pulse {
-                    0%, 100% { opacity: 0.7; }
-                    50% { opacity: 1; }
-                }
-
-                .container::before {
-                    content: 'DEBUG MODE';
-                    position: absolute;
-                    top: 4px;
-                    left: 4px;
-                    background: #ff4444;
-                    color: white;
-                    padding: 2px 6px;
-                    border-radius: 2px;
-                    font-size: 10px;
-                    font-family: monospace;
-                    z-index: 20;
-                    opacity: 0.8;
-                }
+                .blurhash-layer.debug-loading::after { content: 'Loading...'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; z-index: 10; animation: pulse 1.5s ease-in-out infinite; }
+                @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+                .container::before { content: 'DEBUG MODE'; position: absolute; top: 4px; left: 4px; background: #ff4444; color: white; padding: 2px 6px; border-radius: 2px; font-size: 10px; font-family: monospace; z-index: 20; opacity: 0.8; }
                 `
                         : ''
                 }
@@ -309,9 +236,7 @@ export class AxBlurest extends HTMLElement {
                 <div class="blurhash-layer"></div>
                 ${src ? `<img class="image-layer" src="" alt="${alt}" data-src="${src}">` : ''}
                 <div class="error-layer">
-                    <div class="icon-container">
-                        <div class="red-x"></div>
-                    </div>
+                    <div class="icon-container"><div class="red-x"></div></div>
                 </div>
             </div>
         `;
@@ -359,19 +284,28 @@ export class AxBlurest extends HTMLElement {
         const src = imageLayer.getAttribute('data-src');
         if (!src || this.isImageLoaded || this.isImageError) return;
 
+        // ADDED: Record the start time right before we initiate the load.
+        this.loadStartTime = Date.now();
         const blurhashLayer = this.root.querySelector('.blurhash-layer') as HTMLElement;
-
         const img = new Image();
 
         img.onload = () => {
+            const loadDuration = this.loadStartTime ? Date.now() - this.loadStartTime : 999;
+            const debugMode = this.getAttribute('debug') !== null;
+
+            if (loadDuration < 200) {
+                imageLayer.classList.add('no-animation');
+                if (debugMode) console.log(`[AxBlurest Debug] Image loaded in ${loadDuration}ms. Skipping animation.`);
+            }
+
+            // The rest of the logic triggers the animation
             imageLayer.src = src;
             imageLayer.classList.add('loaded');
 
-            setTimeout(() => {
-                if (blurhashLayer) {
-                    blurhashLayer.classList.add('fade-out');
-                }
-            }, 100);
+            // Fade out the blurhash layer simultaneously
+            if (blurhashLayer) {
+                blurhashLayer.classList.add('fade-out');
+            }
 
             this.isImageLoaded = true;
 
@@ -383,7 +317,6 @@ export class AxBlurest extends HTMLElement {
                 })
             );
 
-            const debugMode = this.getAttribute('debug') !== null;
             if (debugMode) {
                 console.log('[AxBlurest Debug] Image loaded successfully:', src);
             }
@@ -404,6 +337,8 @@ export class AxBlurest extends HTMLElement {
             this.dispatchEvent(
                 new CustomEvent('image-error', {
                     detail: { src },
+                    bubbles: true,
+                    composed: true,
                 })
             );
 
@@ -424,6 +359,7 @@ export class AxBlurest extends HTMLElement {
         if (oldValue !== newValue) {
             this.isImageLoaded = false;
             this.isImageError = false;
+            this.loadStartTime = null;
 
             if (property === 'debug' || property === 'debug-delay') {
                 this.render();
