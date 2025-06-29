@@ -3,7 +3,7 @@ node_js: "22"
 cache: bun
 before_script:
   - bun install
-script: bun run build build
+script: bun run build
 
 before_deploy:
   - tar czvf umd.tar.gz -C build .

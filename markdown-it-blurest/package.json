@@ -2,16 +2,40 @@
   "name": "@fuuck/markdown-it-blurest",
   "module": "index.ts",
   "type": "module",
-  "private": true,
+  "version": "0.0.2",
   "dependencies": {
     "@fuuck/blurest-core": "workspace:*"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build:esm": "bun build index.ts --outfile dist/index.js --format=esm --packages=external --sourcemap=inline",
+    "build:cjs": "bun build index.ts --outfile dist/index.cjs.js --format=cjs --packages=external --sourcemap=inline",
+    "build:dts": "tsc --emitDeclarationOnly --project tsconfig.types.json",
+    "build": "bun run build:esm && bun run build:cjs && bun run build:dts"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "markdown-it": "^14.1.0",
-    "@types/markdown-it": "^14.1.2"
+    "@types/markdown-it": "^14.1.2",
+    "@fuuck/blurest-core-win32-x64-msvc": "workspace:*",
+    "@fuuck/blurest-core-darwin-x64": "workspace:*",
+    "@fuuck/blurest-core-darwin-arm64": "workspace:*",
+    "@fuuck/blurest-core-linux-x64-gnu": "workspace:*",
+    "@fuuck/blurest-core-linux-arm64-gnu": "workspace:*"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5",
+    "@fuuck/blurest-core-win32-x64-msvc": "0.1.0",
+    "@fuuck/blurest-core-darwin-x64": "0.1.0",
+    "@fuuck/blurest-core-darwin-arm64": "0.1.0",
+    "@fuuck/blurest-core-linux-x64-gnu": "0.1.0",
+    "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0"
   }
 }

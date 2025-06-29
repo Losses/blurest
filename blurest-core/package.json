@@ -38,7 +38,7 @@
   "neon": {
     "type": "library",
     "org": "@fuuck",
-    "prefix": "blurest-",
+    "prefix": "blurest-core-",
     "platforms": "common",
     "load": "./src/load.cts"
   },
@@ -49,18 +49,18 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@neon-rs/load": "^0.1.82"
+    "@neon-rs/load": "^0.1.82",
+    "@fuuck/blurest-core-win32-x64-msvc": "workspace:*",
+    "@fuuck/blurest-core-darwin-x64": "workspace:*",
+    "@fuuck/blurest-core-darwin-arm64": "workspace:*",
+    "@fuuck/blurest-core-linux-x64-gnu": "workspace:*",
+    "@fuuck/blurest-core-linux-arm64-gnu": "workspace:*"
   },
   "optionalDependencies": {
     "@fuuck/blurest-core-win32-x64-msvc": "0.1.0",
     "@fuuck/blurest-core-darwin-x64": "0.1.0",
     "@fuuck/blurest-core-darwin-arm64": "0.1.0",
     "@fuuck/blurest-core-linux-x64-gnu": "0.1.0",
-    "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0",
-    "@fuuck/blurest-win32-x64-msvc": "0.1.0",
-    "@fuuck/blurest-darwin-x64": "0.1.0",
-    "@fuuck/blurest-darwin-arm64": "0.1.0",
-    "@fuuck/blurest-linux-x64-gnu": "0.1.0",
-    "@fuuck/blurest-linux-arm64-gnu": "0.1.0"
+    "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0"
   }
 }
