@@ -109,6 +109,16 @@ export function isNetworkUrl(src: string): boolean {
 }
 
 /**
+ * Check if a file is an SVG image based on its extension.
+ * @param filePath File path to check
+ * @returns true if it's an SVG file
+ */
+export function isSvgFile(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase();
+  return ext === ".svg";
+}
+
+/**
  * Validate if the file should be processed by the native module.
  * @param src Image source path
  * @param projectRoot Project root directory
@@ -123,6 +133,14 @@ export function validateFile(
     return {
       shouldProcess: false,
       reason: "Network URL detected",
+    };
+  }
+
+  // Skip SVG files - they don't need blurhash processing
+  if (isSvgFile(src)) {
+    return {
+      shouldProcess: false,
+      reason: "SVG format not supported for blurhash generation",
     };
   }
 
