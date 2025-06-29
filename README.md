@@ -1,104 +1,153 @@
-# blurest
+# Blurest - Progressive Image Loading for Markdown
 
-This project was bootstrapped by [create-neon](https://www.npmjs.com/package/create-neon).
+A comprehensive, high-performance solution for enhanced image rendering in Markdown with BlurHash placeholders, progressive loading, and seamless web component integration.
 
-## Building blurest
+### Key Benefits
 
-Building blurest requires a [supported version of Node and Rust](https://github.com/neon-bindings/neon#platform-support).
+- **🚀 Performance First**: Native Rust-powered blurhash generation with intelligent caching
+- **🎨 Beautiful Placeholders**: Smooth transitions from compact BlurHash placeholders to full images
+- **⚡ Progressive Loading**: Viewport-aware lazy loading with Intersection Observer
+- **🛡️ Type Safety**: Full TypeScript support across all packages
+- **🔧 Easy Integration**: Drop-in solution for existing Markdown workflows
+- **📱 Responsive**: Automatic aspect ratio handling and flexible sizing
 
-To run the build, run:
+## 📦 Packages
 
-```sh
-$ npm run build
+### [@fuuck/blurest-core](./packages/blurest-core)
+
+_High-performance blurhash generation and caching_
+
+The foundation of our ecosystem - a TypeScript/Node.js library that bridges JavaScript with native Rust modules for lightning-fast blurhash generation. Features intelligent database caching to eliminate redundant processing.
+
+**Key Features:**
+
+- Native module performance optimization
+- SQLite-based caching system
+- Comprehensive path validation
+- Project boundary enforcement
+- Batch processing capabilities
+
+### [@fuuck/blurest-wc](./packages/blurest-wc)
+
+_Progressive loading web component_
+
+A modern web component (`<ax-blurest>`) that provides seamless progressive image loading with BlurHash placeholders. Built with Shadow DOM for style encapsulation and performance optimization.
+
+**Key Features:**
+
+- Intersection Observer-based lazy loading
+- Smart animation skipping for fast connections
+- Debug mode for development
+- Custom event dispatching
+- Graceful error handling with retro-style indicators
+
+### [@fuuck/markdown-it-blurest](./packages/markdown-it-blurest)
+
+_Markdown-it plugin for enhanced image rendering_
+
+A markdown-it plugin that automatically transforms standard Markdown image syntax into progressive loading experiences. Supports dimension specifications and provides intelligent fallbacks.
+
+**Key Features:**
+
+- Automatic blurhash generation during Markdown processing
+- Extended syntax support (`=WxH`, `=W`, `=xH`)
+- Graceful fallback to standard `<img>` tags
+- Reference-style image support
+- Zero-config integration
+
+## 🚀 Quick Start
+
+### 1. Install Packages
+
+```bash
+# Core blurhash functionality
+npm install @fuuck/blurest-core
+
+# Web component for progressive loading
+npm install @fuuck/blurest-wc
+
+# Markdown-it plugin
+npm install @fuuck/markdown-it-blurest
 ```
 
-This command uses the [@neon-rs/cli](https://www.npmjs.com/package/@neon-rs/cli) utility to assemble the binary Node addon from the output of `cargo`.
+### 2. Set Up Web Component
 
-## Exploring blurest
+```javascript
+import { AxBlurest } from "@fuuck/blurest-wc";
 
-After building blurest, you can explore its exports at the Node console:
-
-```sh
-$ npm i
-$ npm run build
-$ node
-> require('.').greeting('node')
-{ message: 'hello node' }
+// Register the custom element
+AxBlurest.register();
 ```
 
-## Available Scripts
+### 3. Configure Markdown Processing
 
-In the project directory, you can run:
+```javascript
+import MarkdownIt from "markdown-it";
+import axBlurestPlugin from "@fuuck/markdown-it-blurest";
+import { join } from "path";
 
-#### `npm run build`
+const md = new MarkdownIt();
 
-Builds the Node addon (`index.node`) from source, generating a release build with `cargo --release`.
+md.use(axBlurestPlugin, {
+  databaseUrl: join(__dirname, "blurhash-cache.sqlite3"),
+  projectRoot: __dirname,
+});
 
-Additional [`cargo build`](https://doc.rust-lang.org/cargo/commands/cargo-build.html) arguments may be passed to `npm run build` and similar commands. For example, to enable a [cargo feature](https://doc.rust-lang.org/cargo/reference/features.html):
-
-```
-npm run build -- --feature=beetle
-```
-
-#### `npm run debug`
-
-Similar to `npm run build` but generates a debug build with `cargo`.
-
-#### `npm run cross`
-
-Similar to `npm run build` but uses [cross-rs](https://github.com/cross-rs/cross) to cross-compile for another platform. Use the [`CARGO_BUILD_TARGET`](https://doc.rust-lang.org/cargo/reference/config.html#buildtarget) environment variable to select the build target.
-
-#### `npm run release`
-
-Initiate a full build and publication of a new patch release of this library via GitHub Actions.
-
-#### `npm run dryrun`
-
-Initiate a dry run of a patch release of this library via GitHub Actions. This performs a full build but does not publish the final result.
-
-#### `npm test`
-
-Runs the unit tests by calling `cargo test`. You can learn more about [adding tests to your Rust code](https://doc.rust-lang.org/book/ch11-01-writing-tests.html) from the [Rust book](https://doc.rust-lang.org/book/).
-
-## Project Layout
-
-The directory structure of this project is:
-
-```
-blurest/
-├── Cargo.toml
-├── README.md
-├── lib/
-├── src/
-|   ├── index.mts
-|   └── index.cts
-├── crates/
-|   └── blurest/
-|       └── src/
-|           └── lib.rs
-├── platforms/
-├── package.json
-└── target/
+// Transform your markdown
+const html = md.render(`
+![Beautiful landscape](./images/landscape.jpg "Scenic view" =800x600)
+`);
 ```
 
-| Entry          | Purpose                                                                                                                                  |
-|----------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| `Cargo.toml`   | The Cargo [manifest file](https://doc.rust-lang.org/cargo/reference/manifest.html), which informs the `cargo` command.                   |
-| `README.md`    | This file.                                                                                                                               |
-| `lib/`         | The directory containing the generated output from [tsc](https://typescriptlang.org).                                                    |
-| `src/`         | The directory containing the TypeScript source files.                                                                                    |
-| `index.mts`    | Entry point for when this library is loaded via [ESM `import`](https://nodejs.org/api/esm.html#modules-ecmascript-modules) syntax.       |
-| `index.cts`    | Entry point for when this library is loaded via [CJS `require`](https://nodejs.org/api/modules.html#requireid).                          |
-| `crates/`      | The directory tree containing the Rust source code for the project.                                                                      |
-| `lib.rs`       | Entry point for the Rust source code.                                                                                                          |
-| `platforms/`   | The directory containing distributions of the binary addon backend for each platform supported by this library.                          |
-| `package.json` | The npm [manifest file](https://docs.npmjs.com/cli/v7/configuring-npm/package-json), which informs the `npm` command.                    |
-| `target/`      | Binary artifacts generated by the Rust build.                                                                                            |
+### 4. Enhanced Markdown Syntax
 
-## Learn More
+```markdown
+<!-- Standard images -->
 
-Learn more about:
+![Alt text](image.jpg)
 
-- [Neon](https://neon-bindings.com).
-- [Rust](https://www.rust-lang.org).
-- [Node](https://nodejs.org).
+<!-- With dimensions -->
+
+![Landscape](photo.jpg =800x600) # Width and height
+![Portrait](photo.jpg =400x) # Width only
+![Square](photo.jpg =x400) # Height only
+
+<!-- Reference style -->
+
+![Mountain view][mountain]
+
+[mountain]: ./images/mountain.jpg "Peak at sunset" =1200x800
+```
+
+### 5. Generated Output
+
+Your Markdown images are automatically transformed into progressive loading components:
+
+```html
+<ax-blurest
+  src-width="1200"
+  src-height="800"
+  alt="Mountain view"
+  src="./images/mountain.jpg"
+  blurhash="L6PZfSi_.AyE_3t7t7R**0o#DgR4"
+  render-width="800"
+  render-height="600"
+>
+  <img
+    width="800"
+    height="600"
+    alt="Mountain view"
+    src="./images/mountain.jpg"
+  />
+</ax-blurest>
+```
+
+## 📚 Documentation
+
+- **[Core API Reference](./blurest-core/README.md)** - Detailed blurhash generation API
+- **[Web Component Guide](./blurest-wc/README.md)** - Progressive loading component
+- **[Markdown Plugin Docs](./markdown-it-blurest/README.md)** - Integration guide
+
+## 📄 License
+
+MIT

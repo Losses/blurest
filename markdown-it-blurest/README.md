@@ -1,4 +1,4 @@
-# markdown-it-ax-blurest
+# @fuuck/markdown-it-blurest
 
 A markdown-it plugin that enhances image rendering with blurhash support and custom web components. This plugin automatically generates blurhash placeholders for images and renders them using the `<ax-blurest>` custom element with progressive loading capabilities.
 
@@ -26,7 +26,7 @@ bun add @fuuck/markdown-it-blurest
 
 ```javascript
 import MarkdownIt from "markdown-it";
-import axBlurestPlugin from "markdown-it-ax-blurest";
+import axBlurestPlugin from "@fuuck/markdown-it-blurest";
 
 const md = new MarkdownIt();
 
@@ -43,7 +43,7 @@ const html = md.render('![Alt text](image.jpg "Title" =400x300)');
 ### With Cleanup
 
 ```javascript
-import { cleanupAxBlurest } from "markdown-it-ax-blurest";
+import { cleanupAxBlurest } from "@fuuck/markdown-it-blurest";
 
 // When you're done with the markdown instance
 const cleanupSuccess = cleanupAxBlurest(md);
