@@ -327,10 +327,89 @@ jobs:
           if-no-files-found: error
           retention-days: 1 # Keep artifacts only for a short time
 
+  js-packages:
+    name: Build JS Packages (wc, markdown-it)
+    needs: [matrix] # Same gate as binaries/main
+    if: ${{ needs.matrix.outputs.matrix != '[]' && needs.matrix.outputs.matrix != '' && needs.matrix.outputs.matrix != null }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      # Install the whole workspace at the root so that `workspace:*`
+      # dependencies resolve (markdown-it-blurest -> @fuuck/blurest-core,
+      # blurest-wc pulls its rollup/tsc toolchain) and pack can rewrite the
+      # workspace protocol into the published version range.
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build & Pack blurest-wc
+        id: pack-wc
+        working-directory: ./blurest-wc
+        shell: bash
+        run: |
+          echo "*** Building & Packing blurest-wc ***"
+          # prepublishOnly is not triggered by pack, so build explicitly.
+          bun run build
+          PACK_DIR="./pack-output"
+          mkdir -p "$PACK_DIR"
+          PACK_OUTPUT_ABSPATH=$(bun pm pack --destination "${PACK_DIR}" | grep '\.tgz$' | head -n 1)
+          if [[ -z "$PACK_OUTPUT_ABSPATH" ]]; then
+            echo "::error::Failed to pack blurest-wc in $(pwd)."
+            exit 1
+          fi
+          FILENAME=$(basename "$PACK_OUTPUT_ABSPATH")
+          echo "Packed ${FILENAME} to ${GITHUB_WORKSPACE}/blurest-wc/${PACK_DIR}"
+          if [[ ! -f "${PACK_DIR}/${FILENAME}" ]]; then
+            echo "::error::Verification failed: ${FILENAME} not found in ${PACK_DIR}"
+            ls -l "${PACK_DIR}"
+            exit 1
+          fi
+          echo "filename=${FILENAME}" | tee -a $GITHUB_OUTPUT
+
+      - name: Build & Pack markdown-it-blurest
+        id: pack-mdit
+        working-directory: ./markdown-it-blurest
+        shell: bash
+        run: |
+          echo "*** Building & Packing markdown-it-blurest ***"
+          bun run build
+          PACK_DIR="./pack-output"
+          mkdir -p "$PACK_DIR"
+          PACK_OUTPUT_ABSPATH=$(bun pm pack --destination "${PACK_DIR}" | grep '\.tgz$' | head -n 1)
+          if [[ -z "$PACK_OUTPUT_ABSPATH" ]]; then
+            echo "::error::Failed to pack markdown-it-blurest in $(pwd)."
+            exit 1
+          fi
+          FILENAME=$(basename "$PACK_OUTPUT_ABSPATH")
+          echo "Packed ${FILENAME} to ${GITHUB_WORKSPACE}/markdown-it-blurest/${PACK_DIR}"
+          if [[ ! -f "${PACK_DIR}/${FILENAME}" ]]; then
+            echo "::error::Verification failed: ${FILENAME} not found in ${PACK_DIR}"
+            ls -l "${PACK_DIR}"
+            exit 1
+          fi
+          echo "filename=${FILENAME}" | tee -a $GITHUB_OUTPUT
+
+      - name: Upload JS Package Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: js-packages
+          # Path is relative to GITHUB_WORKSPACE
+          path: |
+            ${{ github.workspace }}/blurest-wc/pack-output/${{ steps.pack-wc.outputs.filename }}
+            ${{ github.workspace }}/markdown-it-blurest/pack-output/${{ steps.pack-mdit.outputs.filename }}
+          if-no-files-found: error
+          retention-days: 1 # Keep artifacts only for a short time
+
   collect-and-upload:
     name: Collect and Upload Packages
-    # Depend on all binary builds and the main package build
-    needs: [binaries, main]
+    # Depend on all binary builds, the main package build, and the JS packages.
+    needs: [binaries, main, js-packages]
     # Run if matrix generation succeeded, even if some builds failed?
     # No, let's run only if ALL dependencies succeeded to ensure a complete package set.
     if: success() # Runs only if 'matrix', 'binaries' (all instances), and 'main' succeeded
