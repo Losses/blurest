@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "blurest",
@@ -9,7 +10,7 @@
     },
     "blurest-core": {
       "name": "@fuuck/blurest-core",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "dependencies": {
         "@neon-rs/load": "^0.1.82",
       },
@@ -29,27 +30,27 @@
     },
     "blurest-core/platforms/darwin-arm64": {
       "name": "@fuuck/blurest-core-darwin-arm64",
-      "version": "0.2.2",
+      "version": "0.3.0",
     },
     "blurest-core/platforms/darwin-x64": {
       "name": "@fuuck/blurest-core-darwin-x64",
-      "version": "0.2.2",
+      "version": "0.3.0",
     },
     "blurest-core/platforms/linux-arm64-gnu": {
       "name": "@fuuck/blurest-core-linux-arm64-gnu",
-      "version": "0.2.2",
+      "version": "0.3.0",
     },
     "blurest-core/platforms/linux-x64-gnu": {
       "name": "@fuuck/blurest-core-linux-x64-gnu",
-      "version": "0.2.2",
+      "version": "0.3.0",
     },
     "blurest-core/platforms/win32-x64-msvc": {
       "name": "@fuuck/blurest-core-win32-x64-msvc",
-      "version": "0.2.2",
+      "version": "0.3.0",
     },
     "blurest-wc": {
       "name": "@fuuck/blurest-wc",
-      "version": "0.0.2",
+      "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "latest",
         "npm-run-all": "^4.1.5",
@@ -62,26 +63,21 @@
     },
     "markdown-it-blurest": {
       "name": "@fuuck/markdown-it-blurest",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "dependencies": {
         "@fuuck/blurest-core": "workspace:*",
       },
       "devDependencies": {
-        "@fuuck/blurest-core-darwin-arm64": "0.1.0",
-        "@fuuck/blurest-core-darwin-x64": "0.1.0",
-        "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0",
-        "@fuuck/blurest-core-linux-x64-gnu": "0.1.0",
-        "@fuuck/blurest-core-win32-x64-msvc": "0.1.0",
         "@types/bun": "latest",
         "@types/markdown-it": "^14.1.2",
         "markdown-it": "^14.1.0",
       },
       "peerDependencies": {
-        "@fuuck/blurest-core-darwin-arm64": "0.1.0",
-        "@fuuck/blurest-core-darwin-x64": "0.1.0",
-        "@fuuck/blurest-core-linux-arm64-gnu": "0.1.0",
-        "@fuuck/blurest-core-linux-x64-gnu": "0.1.0",
-        "@fuuck/blurest-core-win32-x64-msvc": "0.1.0",
+        "@fuuck/blurest-core-darwin-arm64": "workspace:*",
+        "@fuuck/blurest-core-darwin-x64": "workspace:*",
+        "@fuuck/blurest-core-linux-arm64-gnu": "workspace:*",
+        "@fuuck/blurest-core-linux-x64-gnu": "workspace:*",
+        "@fuuck/blurest-core-win32-x64-msvc": "workspace:*",
         "typescript": "^5",
       },
     },
@@ -659,9 +655,13 @@
 
     "@babel/helper-compilation-targets/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 
+    "@fuuck/markdown-it-blurest/@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
+
     "find-cache-dir/pkg-dir": ["pkg-dir@4.2.0", "", { "dependencies": { "find-up": "^4.0.0" } }, "sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ=="],
 
     "make-dir/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
+
+    "@fuuck/markdown-it-blurest/@types/bun/bun-types": ["bun-types@1.3.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-4N0ig0fEomHt5R0KCFWjovxow98rIoRwKolrYdCcknNwMekCXRnWEUvgu5soYV8QXtVsrUD8B95MBOZGPvr6KQ=="],
 
     "find-cache-dir/pkg-dir/find-up": ["find-up@4.1.0", "", { "dependencies": { "locate-path": "^5.0.0", "path-exists": "^4.0.0" } }, "sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw=="],
 
