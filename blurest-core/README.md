@@ -40,6 +40,7 @@ const result = blurhash.processImage("./images/photo.jpg");
 if (result && result.success) {
   console.log("Blurhash:", result.blurhash);
   console.log("Dimensions:", result.width, "x", result.height);
+  console.log("WebP placeholder (base64):", result.webpBase64);
 } else if (result && !result.success) {
   console.error("Error:", result.error);
 }
@@ -97,6 +98,27 @@ const result = blurhash.processImage("./images/photo.jpg");
 - `BlurhashErrorResult` on error
 - `null` if processing should be skipped
 
+##### `migrateWebpPlaceholders(): WebpMigrationResult`
+
+Backfills the baked WebP placeholder for every cached image that is missing one.
+This is the one-time upgrade path for databases that pre-date the `webp_base64`
+column (or whose placeholder bake previously failed). Each missing placeholder is
+regenerated **purely from the cached blurhash string** — source image files are
+never read, so migration is safe even if images have been moved or deleted.
+
+```typescript
+const migration = blurhash.migrateWebpPlaceholders();
+if (migration.success) {
+  console.log(`Baked ${migration.processed} placeholders, skipped ${migration.skipped}`);
+} else {
+  console.error("Migration failed:", migration.error);
+}
+```
+
+The migration is idempotent: re-running it reports `processed: 0` once every row
+has a placeholder. Note that placeholders are also baked lazily on cache hits, so
+calling this method is optional — it just front-fills the whole table at once.
+
 ##### `cleanup(): boolean`
 
 Cleans up resources and closes database connections.
@@ -151,6 +173,20 @@ isNetworkUrl("https://example.com/image.jpg"); // true
 isNetworkUrl("./local/image.jpg"); // false
 ```
 
+#### `isSvgFile(filePath: string): boolean`
+
+Checks whether a path points to an SVG image by its extension (case-insensitive).
+SVG files are skipped by `validateFile` / `processImage` because the toolchain
+cannot render them.
+
+```typescript
+import { isSvgFile } from "@fuuck/blurest-core";
+
+isSvgFile("logo.svg"); // true
+isSvgFile("logo.SVG"); // true
+isSvgFile("photo.png"); // false
+```
+
 ## Type Definitions
 
 ### BlurhashResult Types
@@ -161,6 +197,12 @@ interface BlurhashSuccessResult {
   blurhash: string;
   width: number;
   height: number;
+  /**
+   * Base64-encoded lossy WebP render of the blurhash placeholder (a 32×32 image
+   * encoded with quality=20, effort=6). `null` only if the placeholder could
+   * not be baked (e.g. the blurhash failed to decode).
+   */
+  webpBase64: string | null;
 }
 
 interface BlurhashErrorResult {
@@ -169,6 +211,25 @@ interface BlurhashErrorResult {
 }
 
 type BlurhashResult = BlurhashSuccessResult | BlurhashErrorResult;
+```
+
+### WebP Migration Types
+
+```typescript
+interface WebpMigrationSuccessResult {
+  success: true;
+  /** Number of cache rows that received a freshly baked WebP placeholder. */
+  processed: number;
+  /** Number of cache rows whose WebP bake failed and were left untouched. */
+  skipped: number;
+}
+
+interface WebpMigrationErrorResult {
+  success: false;
+  error: string;
+}
+
+type WebpMigrationResult = WebpMigrationSuccessResult | WebpMigrationErrorResult;
 ```
 
 ### Configuration Types
@@ -310,6 +371,20 @@ The library automatically validates files before processing:
 - ✅ **Project boundary**: Files must be within the specified project root
 - ✅ **File existence**: Non-existent files are skipped
 - ✅ **File type**: Only actual files are processed (not directories)
+
+## Database Migrations
+
+On every initialization the cache schema is reconciled automatically — no manual
+migration step is required:
+
+- The `blurhash_cache` table is created if missing (now including the
+  `webp_base64` column).
+- Existing databases that pre-date the `webp_base64` column get it added via
+  `ALTER TABLE`.
+- To populate the new column for rows that already existed, call
+  [`migrateWebpPlaceholders()`](#migratewebpplaceholders-webpmigrationresult)
+  once after `initialize()`. It bakes every missing placeholder from the cached
+  blurhash without touching the original image files.
 
 ## Performance Considerations
 

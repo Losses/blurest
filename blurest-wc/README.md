@@ -65,16 +65,42 @@ AxBlurest.register();
 
 ## Attributes
 
-| Attribute      | Type    | Required | Description                                        |
-| -------------- | ------- | -------- | -------------------------------------------------- |
-| `src`          | string  | Yes      | The URL of the image to load                       |
-| `src-width`    | string  | Yes      | Original width of the image in pixels              |
-| `src-height`   | string  | Yes      | Original height of the image in pixels             |
-| `blurhash`     | string  | Yes      | BlurHash string for the placeholder                |
-| `alt`          | string  | No       | Alt text for accessibility (default: empty)        |
-| `render-width` | string  | No       | Desired render width in pixels (default: 100%)     |
-| `debug`        | boolean | No       | Enable debug mode with visual indicators           |
-| `debug-delay`  | string  | No       | Delay in ms for debug mode loading (default: 3000) |
+| Attribute      | Type    | Required | Description                                                  |
+| -------------- | ------- | -------- | ----------------------------------------------------------- |
+| `src`          | string  | Yes      | The URL of the image to load                                |
+| `src-width`    | string  | Yes      | Original width of the image in pixels                       |
+| `src-height`   | string  | Yes      | Original height of the image in pixels                      |
+| `blurhash`     | string  | Yes      | BlurHash string for the placeholder                         |
+| `blurhash-webp`| string  | No       | Base64 WebP placeholder; paints the blur straight from cache |
+| `alt`          | string  | No       | Alt text for accessibility (default: empty)                 |
+| `render-width` | string  | No       | Desired render width in pixels (default: 100%)              |
+| `debug`        | boolean | No       | Enable debug mode with visual indicators                    |
+| `debug-delay`  | string  | No       | Delay in ms for debug mode loading (default: 3000)          |
+
+## WebP Placeholder (`blurhash-webp`)
+
+When the `blurhash-webp` attribute is present, the component paints the blurred
+backdrop directly from a tiny pre-baked WebP image instead of decoding the
+blurhash string into CSS on the client. This is faster and cheaper, and is what
+the `@fuuck/blurest-core` / `markdown-it-blurest` pipeline emits automatically
+(`processImage(...).webpBase64`).
+
+```html
+<ax-blurest
+    src="https://example.com/image.jpg"
+    src-width="800"
+    src-height="600"
+    blurhash="LGF5]+Yk^6#M@-5c,1J5@[or[Q6."
+    blurhash-webp="UklGRkBAAABXRUJQV18A..."
+    alt="Beautiful landscape"
+></ax-blurest>
+```
+
+The placeholder is a 32×32 WebP upscaled to fill the container, so a
+`filter: blur(20px)` is applied to the backdrop layer to hide the upscaling
+artifacts. When `blurhash-webp` is **absent**, the component falls back to its
+original behavior of decoding the `blurhash` into CSS — so omitting the attribute
+remains fully supported.
 
 ## Display Modes
 

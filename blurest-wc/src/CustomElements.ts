@@ -134,6 +134,7 @@ export class AxBlurest extends PatchedHTMLElement {
         const srcWidth = this.getAttribute('src-width');
         const srcHeight = this.getAttribute('src-height');
         const blurhash = this.getAttribute('blurhash');
+        const blurhashWebp = this.getAttribute('blurhash-webp');
         const alt = this.getAttribute('alt') || '';
         const renderWidth = this.getAttribute('render-width');
         const debugMode = this.getAttribute('debug') !== null;
@@ -170,7 +171,11 @@ export class AxBlurest extends PatchedHTMLElement {
         }
 
         const aspectRatio = parseFloat(srcWidth) / parseFloat(srcHeight);
-        const blurhashCSS = this.generateBlurhashCSS(blurhash, aspectRatio);
+        // When a baked WebP placeholder is available, render the blurred backdrop
+        // straight from it; otherwise fall back to decoding the blurhash into CSS.
+        const blurhashCSS = blurhashWebp
+            ? this.generateWebpPlaceholderCSS(blurhashWebp)
+            : this.generateBlurhashCSS(blurhash, aspectRatio);
 
         this.root.innerHTML = `
             <style>
@@ -362,6 +367,27 @@ export class AxBlurest extends PatchedHTMLElement {
         }
     }
 
+    /**
+     * Build the CSS for the blurred placeholder layer from a pre-baked WebP image.
+     *
+     * The placeholder is a tiny (32×32) WebP produced server-side from the blurhash,
+     * so the client can paint the blurred backdrop directly from a cached image
+     * instead of decoding the blurhash into CSS gradients. A 20px blur hides the
+     * upscaling artifacts of the small source image.
+     *
+     * @param base64 Raw base64-encoded WebP bytes (without a `data:` prefix).
+     */
+    private generateWebpPlaceholderCSS(base64: string): string {
+        const dataUrl = `data:image/webp;base64,${base64}`;
+        return [
+            `background-image: url(${dataUrl});`,
+            'background-size: cover;',
+            'background-position: center;',
+            'background-repeat: no-repeat;',
+            'filter: blur(20px);',
+        ].join('\n                    ');
+    }
+
     loadImage() {
         const imageLayer = this.root.querySelector('.image-layer') as HTMLImageElement;
         if (!imageLayer) return;
@@ -442,7 +468,7 @@ export class AxBlurest extends PatchedHTMLElement {
     }
 
     static get observedAttributes() {
-        return ['src', 'src-width', 'src-height', 'blurhash', 'render-width', 'alt', 'debug', 'debug-delay'];
+        return ['src', 'src-width', 'src-height', 'blurhash', 'blurhash-webp', 'render-width', 'alt', 'debug', 'debug-delay'];
     }
 
     attributeChangedCallback(property: string, oldValue: string | null, newValue: string | null) {

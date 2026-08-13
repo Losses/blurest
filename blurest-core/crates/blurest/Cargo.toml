@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.98"
+base64 = "0.22"
 blurhash = "0.2.3"
 chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.11", features = [
@@ -22,7 +23,13 @@ env_logger = "0.11.8"
 filetime = "0.2.25"
 hex = "0.4.3"
 image = "0.25.6"
+# libwebp bindings for baking decoded blurhash placeholders into tiny WebP images.
+# The `0_5` feature unlocks `WebPMemoryWriterClear`, required to free the encoded buffer.
 libsqlite3-sys = { version = ">=0.17.2, <0.34.0", features = ["bundled"] }
+libwebp-sys2 = { version = "0.1", features = ["0_5"] }
 log = "0.4.27"
 neon = "1.1"
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
+
+[dev-dependencies]
+tempfile = "3"

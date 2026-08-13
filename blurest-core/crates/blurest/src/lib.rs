@@ -76,7 +76,10 @@ use std::{
 
 use neon::prelude::*;
 
-use crate::core::{AppContext, get_blurhash_with_cache, initialize_and_connect_db};
+use crate::core::{
+    AppContext, get_blurhash_with_cache, initialize_and_connect_db,
+    migrate_webp_placeholders as migrate_webp_placeholders_core,
+};
 
 pub mod core;
 pub mod models;
@@ -225,6 +228,86 @@ fn get_blurhash(mut cx: FunctionContext) -> JsResult<JsObject> {
             obj.set(&mut cx, "blurhash", hash_value)?;
             obj.set(&mut cx, "width", width_value)?;
             obj.set(&mut cx, "height", height_value)?;
+            // Base64-encoded WebP placeholder render, or `null` if it could not be baked.
+            if let Some(b64) = data.webp_base64 {
+                let webp_value = cx.string(b64);
+                obj.set(&mut cx, "webpBase64", webp_value)?;
+            } else {
+                let null_value = cx.null();
+                obj.set(&mut cx, "webpBase64", null_value)?;
+            }
+        }
+        Err(e) => {
+            let success = cx.boolean(false);
+            let error = cx.string(format!("Error: {e}"));
+            obj.set(&mut cx, "success", success)?;
+            obj.set(&mut cx, "error", error)?;
+        }
+    }
+
+    Ok(obj)
+}
+
+/// Backfills the baked WebP placeholder (`webp_base64`) for every cache row that
+/// is missing one.
+///
+/// This is the one-time migration path for databases that pre-date the WebP
+/// column (or whose bake previously failed). Placeholders are regenerated purely
+/// from the cached blurhash string — no source image files are read.
+///
+/// # Returns
+///
+/// * `JsObject` with fields:
+///   - `success: boolean` - Whether the migration completed
+///   - `processed: number` - Number of rows that received a freshly baked WebP (success)
+///   - `skipped: number` - Number of rows whose bake failed and were left untouched
+///   - `error: string` - Error message (only present on failure)
+fn migrate_webp_placeholders(mut cx: FunctionContext) -> JsResult<JsObject> {
+    let context_mutex = match GLOBAL_CONTEXT.get() {
+        Some(mutex) => mutex,
+        None => {
+            let obj = cx.empty_object();
+            let success = cx.boolean(false);
+            let error = cx.string("Context not initialized. Call initialize_blurhash_cache first.");
+            obj.set(&mut cx, "success", success)?;
+            obj.set(&mut cx, "error", error)?;
+            return Ok(obj);
+        }
+    };
+    let guard = match context_mutex.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            let obj = cx.empty_object();
+            let success = cx.boolean(false);
+            let error = cx.string("Failed to acquire context lock");
+            obj.set(&mut cx, "success", success)?;
+            obj.set(&mut cx, "error", error)?;
+            return Ok(obj);
+        }
+    };
+
+    let mut context_ref = guard.borrow_mut();
+    let context = match context_ref.as_mut() {
+        Some(ctx) => ctx,
+        None => {
+            let obj = cx.empty_object();
+            let success = cx.boolean(false);
+            let error = cx.string("Context not initialized. Call initialize_blurhash_cache first.");
+            obj.set(&mut cx, "success", success)?;
+            obj.set(&mut cx, "error", error)?;
+            return Ok(obj);
+        }
+    };
+
+    let obj = cx.empty_object();
+    match migrate_webp_placeholders_core(context) {
+        Ok(result) => {
+            let success = cx.boolean(true);
+            let processed = cx.number(result.processed as f64);
+            let skipped = cx.number(result.skipped as f64);
+            obj.set(&mut cx, "success", success)?;
+            obj.set(&mut cx, "processed", processed)?;
+            obj.set(&mut cx, "skipped", skipped)?;
         }
         Err(e) => {
             let success = cx.boolean(false);
@@ -323,6 +406,7 @@ fn clear_context(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("initialize_blurhash_cache", initialize_blurhash_cache)?;
     cx.export_function("get_blurhash", get_blurhash)?;
+    cx.export_function("migrate_webp_placeholders", migrate_webp_placeholders)?;
     cx.export_function("is_initialized", is_initialized)?;
     cx.export_function("clear_context", clear_context)?;
     Ok(())

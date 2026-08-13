@@ -27,6 +27,12 @@ export interface BlurhashSuccessResult {
   blurhash: string;
   width: number;
   height: number;
+  /**
+   * Base64-encoded lossy WebP render of the blurhash placeholder (a 32×32 image
+   * encoded with quality=20, effort=6). `null` when the placeholder could not be
+   * baked (e.g. the blurhash failed to decode).
+   */
+  webpBase64: string | null;
 }
 
 /**
@@ -41,6 +47,32 @@ export interface BlurhashErrorResult {
  * Union return type for `get_blurhash` function.
  */
 export type BlurhashResult = BlurhashSuccessResult | BlurhashErrorResult;
+
+/**
+ * Success result type for `migrate_webp_placeholders`.
+ */
+export interface WebpMigrationSuccessResult {
+  success: true;
+  /** Number of cache rows that received a freshly baked WebP placeholder. */
+  processed: number;
+  /** Number of cache rows whose WebP bake failed and were left untouched. */
+  skipped: number;
+}
+
+/**
+ * Error result type for `migrate_webp_placeholders`.
+ */
+export interface WebpMigrationErrorResult {
+  success: false;
+  error: string;
+}
+
+/**
+ * Union return type for `migrate_webp_placeholders`.
+ */
+export type WebpMigrationResult =
+  | WebpMigrationSuccessResult
+  | WebpMigrationErrorResult;
 
 /**
  * Parsed image source information.
@@ -85,6 +117,15 @@ declare module "./load.cjs" {
    * @returns An object containing blurhash data or error information
    */
   function get_blurhash(imagePath: string): BlurhashResult;
+
+  /**
+   * Backfill the baked WebP placeholder for every cached image that is missing one.
+   *
+   * Placeholders are regenerated purely from the cached blurhash string, so source
+   * image files are never read during migration.
+   * @returns An object describing how many rows were processed/skipped, or an error
+   */
+  function migrate_webp_placeholders(): WebpMigrationResult;
 
   /**
    * Check if the Blurhash cache system is initialized.
@@ -313,6 +354,24 @@ export class BlurhashCore {
 
     // Get blurhash and original dimensions from native module
     return addon.get_blurhash(src);
+  }
+
+  /**
+   * Backfill the baked WebP placeholder for every cached image that is missing one.
+   *
+   * This is the migration entry point for databases that pre-date the WebP column
+   * (or whose placeholder bake previously failed). Each missing placeholder is
+   * regenerated from the cached blurhash string — source image files are not read.
+   *
+   * @returns Migration summary (processed/skipped counts) or an error result
+   */
+  migrateWebpPlaceholders(): WebpMigrationResult {
+    if (!this.initialized) {
+      throw new Error(
+        "[blurhash-core] Core not initialized. Call initialize() first."
+      );
+    }
+    return addon.migrate_webp_placeholders();
   }
 
   /**

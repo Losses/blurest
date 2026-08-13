@@ -2,14 +2,6 @@
 
 A markdown-it plugin that enhances image rendering with blurhash support and custom web components. This plugin automatically generates blurhash placeholders for images and renders them using the `<ax-blurest>` custom element with progressive loading capabilities.
 
-## Features
-
-- 🎨 **Automatic Blurhash Generation**: Generates blurhash strings for images to provide smooth loading placeholders
-- 📐 **Dimension Support**: Supports markdown image dimension syntax (`=WxH`, `=W`, `=xH`)
-- 🔄 **Progressive Loading**: Uses custom `<ax-blurest>` web component for enhanced user experience
-- 🛡️ **Graceful Fallbacks**: Falls back to standard `<img>` tags when blurhash generation fails
-- ⚡ **Performance Optimized**: Built on top of `@fuuck/blurest-core` for efficient processing
-
 ## Installation
 
 ```bash
@@ -89,6 +81,7 @@ When blurhash is successfully generated, the plugin outputs:
   alt="Alt text"
   src="image.jpg"
   blurhash="L6PZfSi_.AyE_3t7t7R**0o#DgR4"
+  blurhash-webp="UklGRkBAAABXRUJQV18A..."
   render-width="400"
   render-height="300"
 >
@@ -96,9 +89,15 @@ When blurhash is successfully generated, the plugin outputs:
 </ax-blurest>
 ```
 
+The `blurhash-webp` attribute carries the pre-baked WebP placeholder from
+`@fuuck/blurest-core` (see `processImage(...).webpBase64`) so the `<ax-blurest>`
+component can render the blurred backdrop straight from the cached image. It is
+omitted automatically when no placeholder is available.
+
 ### Fallback Output
 
-When blurhash generation fails or is skipped:
+When blurhash generation fails or is skipped (this includes **SVG images**, which
+the pipeline cannot render and skips entirely):
 
 ```html
 <img src="image.jpg" alt="Alt text" width="400" height="300" />

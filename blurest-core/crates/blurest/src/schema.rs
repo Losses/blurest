@@ -9,5 +9,6 @@ diesel::table! {
         height -> Integer,
         created_at -> Timestamp,
         updated_at -> Timestamp,
+        webp_base64 -> Nullable<Text>,
     }
 }

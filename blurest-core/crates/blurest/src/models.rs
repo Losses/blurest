@@ -20,6 +20,7 @@ pub struct BlurhashCache {
     pub height: i32,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub webp_base64: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -31,4 +32,5 @@ pub struct NewBlurhashCache<'a> {
     pub blurhash: &'a str,
     pub width: i32,
     pub height: i32,
+    pub webp_base64: Option<&'a str>,
 }

@@ -400,7 +400,8 @@ function renderAxBlurestComponent(
   blurhash: string,
   srcWidth: number,
   srcHeight: number,
-  md: MarkdownIt
+  md: MarkdownIt,
+  blurhashWebp: string | null
 ): string {
   const escapedAlt = md.utils.escapeHtml(alt);
   const escapedSrc = md.utils.escapeHtml(src);
@@ -412,6 +413,12 @@ function renderAxBlurestComponent(
     ["src", escapedSrc],
     ["blurhash", blurhash],
   ];
+
+  // The base64 WebP placeholder is served to the client so it can render the
+  // blurred backdrop directly from a cached image instead of decoding the blurhash.
+  if (blurhashWebp) {
+    axAttrs.push(["blurhash-webp", blurhashWebp]);
+  }
 
   if (renderWidth !== null) axAttrs.push(["render-width", renderWidth]);
   if (renderHeight !== null) axAttrs.push(["render-height", renderHeight]);
@@ -510,7 +517,7 @@ function axBlurestPlugin(
       return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
     }
 
-    const { blurhash, width: srcWidth, height: srcHeight } = result;
+    const { blurhash, width: srcWidth, height: srcHeight, webpBase64 } = result;
 
     return renderAxBlurestComponent(
       cleanSrc, // Use original cleanSrc as the src displayed in frontend
@@ -520,7 +527,8 @@ function axBlurestPlugin(
       blurhash,
       srcWidth,
       srcHeight,
-      md
+      md,
+      webpBase64
     );
   };
 
