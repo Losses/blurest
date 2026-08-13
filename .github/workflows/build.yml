@@ -348,6 +348,17 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate blurest-core Type Declarations
+        working-directory: ./blurest-core
+        shell: bash
+        run: |
+          # markdown-it-blurest's `build:dts` imports types from
+          # @fuuck/blurest-core (package.json "types" -> ./lib/index.d.cts).
+          # `lib/` is gitignored, so on a clean CI checkout it does not exist
+          # and tsc fails with TS2307 "Cannot find module '@fuuck/blurest-core'".
+          # Generate the TS declarations here — no cargo / neon needed for .d.ts.
+          bunx tsc
+
       - name: Build & Pack blurest-wc
         id: pack-wc
         working-directory: ./blurest-wc
