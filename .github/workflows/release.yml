@@ -77,6 +77,19 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
+      - name: Ensure OIDC-only auth (no legacy token)
+        run: |
+          # setup-node wrote an .npmrc referencing ${NODE_AUTH_TOKEN}. If the
+          # repo still carries a NODE_AUTH_TOKEN / NPM_TOKEN secret, npm will
+          # publish with that legacy token and never attempt OIDC trusted
+          # publishing — which is the exact 404 we hit. Strip the authToken
+          # line so npm authenticates purely via OIDC (id-token: write).
+          cfg="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          if [ -f "$cfg" ]; then
+            sed -i '/_authToken/d; /always-auth/d' "$cfg"
+            echo "--- $cfg ---"; cat "$cfg"
+          fi
+
       - name: Download Final Build Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -104,7 +117,7 @@ jobs:
           # while body runs in the parent shell (published_count stays visible).
           while IFS= read -r -d $'\0' package_path; do
             echo "Publishing ${package_path} via OIDC trusted publishing..."
-            if npm publish "$package_path" --access public --provenance; then
+            if npm publish "$package_path" --access public; then
               echo "Successfully published ${package_path}"
               published_count=$((published_count + 1))
             else
