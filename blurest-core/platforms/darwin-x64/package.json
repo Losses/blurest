@@ -2,6 +2,7 @@
   "name": "@fuuck/blurest-core-darwin-x64",
   "description": "Prebuilt binary package for `blurest` on `darwin-x64`.",
   "version": "0.3.0",
+  "repository": "https://github.com/Losses/blurest",
   "os": [
     "darwin"
   ],

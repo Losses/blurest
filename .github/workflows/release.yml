@@ -31,16 +31,12 @@ jobs:
         run: echo "dryrun=${{ inputs.dryrun }}" | tee -a $GITHUB_OUTPUT
 
       - id: publish
-        name: Validate Publish Event and Set Output
+        name: Set Publish Output
         shell: bash
-        env:
-          NPM_TOKEN: ${{ !inputs.dryrun && secrets.NPM_TOKEN || 'dummy' }}
         run: |
-          if [[ "${{ !inputs.dryrun }}" == "true" && "$NPM_TOKEN" == "dummy" ]]; then
-            echo "::error::Secret NPM_TOKEN is not defined for a non-dry run."
-            exit 1
-          fi
-          # Publish is true if it's NOT a dry run
+          # Publish is true if it's NOT a dry run. Authentication happens at
+          # publish time via npm Trusted Publishing (OIDC), so no token secret
+          # is stored or referenced in this workflow.
           echo "publish=${{ !inputs.dryrun }}" | tee -a $GITHUB_OUTPUT
 
       - name: Checkout Code
@@ -69,9 +65,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write # Required for npm Trusted Publishing (OIDC)
     steps:
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          # Node 24 bundles npm 11.x (>= 11.5.1), which understands the OIDC
+          # Trusted Publishing flow. The default runner (Node 20 / npm 10)
+          # cannot, and has no fallback — it fails auth outright.
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
 
       - name: Download Final Build Artifacts
         uses: actions/download-artifact@v4
@@ -86,40 +90,32 @@ jobs:
 
       - name: Publish Packages to NPM
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
-          echo "@fuuck:registry=https://registry.npmjs.org/" >> ~/.npmrc
-          echo "Explicitly configured npm auth via ~/.npmrc"
-
-          # Check if any tgz files exist *before* starting the loop
+          # Authentication is via npm Trusted Publishing (OIDC): the
+          # id-token: write job permission lets npm mint short-lived signed
+          # credentials. No token and no ~/.npmrc are involved.
           if ! find ./dist -name '*.tgz' -print -quit | grep -q .; then
              echo "::error::No .tgz files found in ./dist or its subdirectories to publish."
              exit 1
           fi
 
           published_count=0
-          # Use Process Substitution <(...) to feed find results into the loop
-          # This avoids running the while loop in a subshell
+          # Process Substitution <(...) feeds find results into the loop so the
+          # while body runs in the parent shell (published_count stays visible).
           while IFS= read -r -d $'\0' package_path; do
-            echo "Publishing ${package_path} using 'bunx npm publish'..."
-            if bunx npm publish "$package_path" --access public; then
+            echo "Publishing ${package_path} via OIDC trusted publishing..."
+            if npm publish "$package_path" --access public; then
               echo "Successfully published ${package_path}"
-              published_count=$((published_count + 1)) # Now updates the parent shell variable
+              published_count=$((published_count + 1))
             else
               echo "::error::Failed to publish ${package_path}"
-              # Since the main shell has -e, this exit will fail the entire step
               exit 1
             fi
-          done < <(find ./dist -name '*.tgz' -print0) # <<< Note the syntax here
+          done < <(find ./dist -name '*.tgz' -print0)
 
-          # This final check should now work correctly
-          # It's mainly a safeguard; the loop's exit 1 or successful completion is primary
           if [[ "$published_count" -eq 0 ]]; then
             echo "::error::Loop completed, but counter is still zero. This shouldn't happen if files were found."
             exit 1
           fi
 
-          echo "Successfully published $published_count packages using npm."
-          rm -f ~/.npmrc
+          echo "Successfully published $published_count packages via OIDC trusted publishing."
