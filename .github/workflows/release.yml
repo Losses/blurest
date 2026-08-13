@@ -74,21 +74,17 @@ jobs:
           # Trusted Publishing flow. The default runner (Node 20 / npm 10)
           # cannot, and has no fallback — it fails auth outright.
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
-
-      - name: Ensure OIDC-only auth (no legacy token)
-        run: |
-          # setup-node wrote an .npmrc referencing ${NODE_AUTH_TOKEN}. If the
-          # repo still carries a NODE_AUTH_TOKEN / NPM_TOKEN secret, npm will
-          # publish with that legacy token and never attempt OIDC trusted
-          # publishing — which is the exact 404 we hit. Strip the authToken
-          # line so npm authenticates purely via OIDC (id-token: write).
-          cfg="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-          if [ -f "$cfg" ]; then
-            sed -i '/_authToken/d; /always-auth/d' "$cfg"
-            echo "--- $cfg ---"; cat "$cfg"
-          fi
+          # Deliberately NO `registry-url`. When set, setup-node@v6 writes an
+          # ~/.npmrc with `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}`
+          # and EXPORTS a dummy NODE_AUTH_TOKEN ('XXXXX-XXXXX-XXXXX-XXXXX') when
+          # the workflow provides none (authutil.ts:
+          # `process.env.NODE_AUTH_TOKEN || 'XXXXX-...'`). That bogus bearer
+          # token competes with / shadows the OIDC flow — the exact 404 we saw
+          # (the `XXXXX-...` in the run log is this dummy, NOT a masked secret;
+          # GitHub masks secrets as `***`). npm authenticates via OIDC with zero
+          # .npmrc config — the default registry is registry.npmjs.org — so we
+          # leave registry-url off rather than stripping the line later.
 
       - name: Download Final Build Artifacts
         uses: actions/download-artifact@v4
