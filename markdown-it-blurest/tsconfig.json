@@ -8,6 +8,11 @@
     "jsx": "react-jsx",
     "allowJs": true,
 
+    // Explicitly pull in the runtime types so Node built-ins (`path`, `fs`) and
+    // the `console` global resolve regardless of ambient @types auto-inclusion
+    // (e.g. in editor language servers). `bun-types` references `@types/node`.
+    "types": ["bun"],
+
     // Bundler mode
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

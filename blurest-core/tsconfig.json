@@ -3,7 +3,9 @@
   "compilerOptions": {
     "module": "node16",
     "declaration": true,
+    "rootDir": "./src",
     "outDir": "lib",
+    "types": ["node"]
   },
   "exclude": ["lib", "src/**/*.test.ts"]
 }
