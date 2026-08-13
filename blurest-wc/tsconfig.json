@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "target": "es2017",
-        "lib": ["dom", "dom.iterable"],
+        "lib": ["dom", "dom.iterable", "es2017"],
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
         "strict": true,
@@ -12,6 +12,7 @@
         "declarationMap": true,
         "sourceMap": true,
         "incremental": true,
+        "rootDir": "src",
         "outDir": "es",
         "skipLibCheck": true
     },
