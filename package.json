@@ -7,6 +7,9 @@
     "markdown-it-blurest",
     "markdown-it-demo"
   ],
+  "scripts": {
+    "check:lock": "bun scripts/check-lock-versions.ts"
+  },
   "dependencies": {
     "@neon-rs/cli": "^0.1.82"
   }

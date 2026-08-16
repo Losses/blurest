@@ -2,7 +2,7 @@
   "name": "@fuuck/markdown-it-blurest",
   "module": "index.ts",
   "type": "module",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "repository": "https://github.com/Losses/blurest",
   "exports": {
     ".": {

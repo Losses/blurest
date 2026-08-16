@@ -290,6 +290,13 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
 
+      # `bun install` never refreshes a workspace's recorded self-version in
+      # bun.lock, but `bun pm pack` resolves `workspace:*` from bun.lock. A
+      # stale entry publishes tarballs pinned to the previous version (this
+      # shipped markdown-it-blurest@0.4.0 with @fuuck/blurest-core@0.3.1).
+      - name: Verify bun.lock Workspace Versions
+        run: bun run check:lock
+
       - name: Install Dependencies
         working-directory: ./blurest-core
         run: bun install --frozen-lockfile
@@ -340,6 +347,12 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
+
+      # Same guard as the main package job: packing resolves `workspace:*`
+      # from bun.lock, so stale workspace versions there would publish wrong
+      # dependency ranges.
+      - name: Verify bun.lock Workspace Versions
+        run: bun run check:lock
 
       # Install the whole workspace at the root so that `workspace:*`
       # dependencies resolve (markdown-it-blurest -> @fuuck/blurest-core,
