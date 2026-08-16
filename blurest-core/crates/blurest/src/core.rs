@@ -176,8 +176,8 @@ fn blurhash_to_webp_base64(blurhash_str: &str) -> Option<String> {
 /// Encode an RGBA buffer as a lossy WebP (`quality = WEBP_QUALITY`, `method = WEBP_METHOD`).
 fn encode_webp_placeholder(rgba: &[u8], width: u32, height: u32) -> Result<Vec<u8>> {
     use libwebp_sys::{
-        WebPConfig, WebPConfigInit, WebPEncode, WebPMemoryWriter, WebPMemoryWriterClear,
-        WebPMemoryWriterInit, WebPMemoryWrite, WebPPicture, WebPPictureFree,
+        WebPConfig, WebPConfigInit, WebPEncode, WebPMemoryWrite, WebPMemoryWriter,
+        WebPMemoryWriterClear, WebPMemoryWriterInit, WebPPicture, WebPPictureFree,
         WebPPictureImportRGBA, WebPPictureInit, WebPValidateConfig,
     };
     use std::mem::MaybeUninit;
@@ -319,9 +319,10 @@ pub fn get_blurhash_with_cache(
 
         if current_xxhash_str == cache.xxhash {
             debug!("Cache hit: content unchanged, updating mtime for {relative_key}");
-            let webp_base64 = cache.webp_base64.clone().or_else(|| {
-                blurhash_to_webp_base64(&cache.blurhash)
-            });
+            let webp_base64 = cache
+                .webp_base64
+                .clone()
+                .or_else(|| blurhash_to_webp_base64(&cache.blurhash));
             diesel::update(&cache)
                 .set((
                     blurhash_cache::mtime_ms.eq(current_mtime_ms),
@@ -411,11 +412,158 @@ fn calculate_blurhash_hash_and_webp(
     Ok((blurhash_str, hash_str, width, height, webp_base64))
 }
 
+/// How many leading bytes of a file to read when falling back to SVG text
+/// sniffing. Format headers and realistic SVG root elements live well within
+/// this bound.
+const SVG_SNIFF_LIMIT: u64 = 64 * 1024;
+
+/// Read the intrinsic pixel dimensions of an image file without decoding it.
+///
+/// Raster formats go through the `image` crate's header-only `into_dimensions`,
+/// the same decoder registry the blurhash path uses, so format coverage is
+/// identical (PNG/JPEG/GIF/WebP/BMP/TIFF/...). SVG, which the `image` crate
+/// cannot read, falls back to sniffing the root `<svg>` element for absolute
+/// `width`/`height` attributes or a `viewBox`.
+///
+/// Returns `Err` when the file is unreadable, the format is unknown, or (for
+/// SVG) no absolute dimension pair can be derived.
+pub fn probe_image_dimensions(path: &Path) -> Result<(u32, u32)> {
+    match probe_raster_dimensions(path) {
+        Ok(dimensions) => Ok(dimensions),
+        // Surface the raster error when SVG sniffing cannot answer either;
+        // it is usually the more informative of the two failures.
+        Err(raster_error) => probe_svg_dimensions(path).ok_or(raster_error),
+    }
+}
+
+/// Header-only dimension probe for the raster formats the `image` crate knows.
+fn probe_raster_dimensions(path: &Path) -> Result<(u32, u32)> {
+    let reader = image::ImageReader::open(path)
+        .with_context(|| format!("Failed to open file at: {path:?}"))?;
+    let reader = reader
+        .with_guessed_format()
+        .with_context(|| format!("Failed to read header of: {path:?}"))?;
+    let (width, height) = reader
+        .into_dimensions()
+        .with_context(|| format!("Failed to parse image header of: {path:?}"))?;
+    Ok((width, height))
+}
+
+/// Sniff intrinsic dimensions from the root `<svg>` element of a file.
+///
+/// Absolute `width`/`height` attributes win; otherwise a `viewBox` supplies
+/// the intrinsic size, mirroring how a browser sizes an SVG without explicit
+/// dimensions. Percentages, relative units (`em`/`rem`) and unitless
+/// non-numeric values yield `None`.
+fn probe_svg_dimensions(path: &Path) -> Option<(u32, u32)> {
+    let head = read_file_head(path, SVG_SNIFF_LIMIT)?;
+    let text = String::from_utf8_lossy(&head);
+    let tag = svg_root_tag(&text)?;
+
+    let width = svg_attr_px(&tag, "width");
+    let height = svg_attr_px(&tag, "height");
+    if let (Some(width), Some(height)) = (width, height) {
+        return Some((width, height));
+    }
+
+    let view_box = svg_attr(&tag, "viewbox")?;
+    let mut parts = view_box.split(|c: char| c.is_whitespace() || c == ',');
+    let min_x = parts.next()?.parse::<f64>().ok()?;
+    let min_y = parts.next()?.parse::<f64>().ok()?;
+    let vb_width = parts.next()?.parse::<f64>().ok()?;
+    let vb_height = parts.next()?.parse::<f64>().ok()?;
+    let side = |min: f64, size: f64| min.is_finite() && size.is_finite() && size >= 0.5;
+    if !side(min_x, vb_width) || !side(min_y, vb_height) {
+        return None;
+    }
+    Some((vb_width.round() as u32, vb_height.round() as u32))
+}
+
+/// Read up to `limit` leading bytes of a file.
+fn read_file_head(path: &Path, limit: u64) -> Option<Vec<u8>> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    fs::File::open(path)
+        .ok()?
+        .take(limit)
+        .read_to_end(&mut buf)
+        .ok()?;
+    Some(buf)
+}
+
+/// Extract the root `<svg ...>` start tag, lowercased.
+///
+/// Attribute values containing `>` are not supported (rare in the root tag,
+/// and always legal to rewrite); matching stops at the first `>`.
+fn svg_root_tag(text: &str) -> Option<String> {
+    let lower = text.to_ascii_lowercase();
+    let start = lower.find("<svg")?;
+    let after = lower[start + 4..].chars().next()?;
+    if !after.is_whitespace() && after != '>' && after != '/' {
+        // A longer tag name such as `<svgx>`: not an SVG root element.
+        return None;
+    }
+    let end = lower[start..].find('>')? + start;
+    Some(lower[start..=end].to_string())
+}
+
+/// Extract a quoted attribute value from a lowercased tag string.
+///
+/// Handles `name="value"` and `name='value'` with optional whitespace around
+/// the `=`. Matching is exact on the (lowercased) name.
+fn svg_attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+    let bytes = tag.as_bytes();
+    let name_bytes = name.as_bytes();
+    for i in 0..bytes.len() {
+        if !bytes[i..].starts_with(name_bytes) {
+            continue;
+        }
+        // The name must start on a token boundary.
+        if i > 0 && !bytes[i - 1].is_ascii_whitespace() {
+            continue;
+        }
+        let mut j = i + name_bytes.len();
+        while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+            j += 1;
+        }
+        if j >= bytes.len() || bytes[j] != b'=' {
+            continue;
+        }
+        j += 1;
+        while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+            j += 1;
+        }
+        if j >= bytes.len() || (bytes[j] != b'"' && bytes[j] != b'\'') {
+            continue;
+        }
+        let quote = bytes[j];
+        let value_start = j + 1;
+        let value_end = bytes[value_start..]
+            .iter()
+            .position(|&b| b == quote)
+            .map(|offset| value_start + offset)?;
+        return Some(&tag[value_start..value_end]);
+    }
+    None
+}
+
+/// Parse an SVG length that is absolute (a bare number or `px` suffix).
+/// Percentages, `em`/`rem` and other units yield `None`.
+fn svg_attr_px(tag: &str, name: &str) -> Option<u32> {
+    let value = svg_attr(tag, name)?.trim();
+    let number = value.strip_suffix("px").unwrap_or(value).trim();
+    let parsed: f64 = number.parse().ok()?;
+    if !parsed.is_finite() || parsed < 0.5 || parsed > u32::MAX as f64 {
+        return None;
+    }
+    Some(parsed.round() as u32)
+}
+
 /// Backfill `webp_base64` for every cached entry that is missing it.
 ///
 /// This is the bulk migration path: for rows created before the WebP column
 /// existed (or whose WebP bake previously failed), the placeholder is regenerated
-/// purely from the cached blurhash string — no source files are read, so missing
+/// purely from the cached blurhash string; no source files are read, so missing
 /// or moved images do not block the migration.
 pub fn migrate_webp_placeholders(context: &mut AppContext) -> Result<WebpMigrationResult> {
     let stale_rows = blurhash_cache::table
@@ -448,7 +596,7 @@ pub fn migrate_webp_placeholders(context: &mut AppContext) -> Result<WebpMigrati
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{ImageBuffer, Rgba};
+    use image::{ImageBuffer, Rgb, Rgba};
     use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
@@ -466,7 +614,10 @@ mod tests {
         }
         let mut bytes = Vec::new();
         image::DynamicImage::ImageRgba8(img)
-            .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .write_to(
+                &mut std::io::Cursor::new(&mut bytes),
+                image::ImageFormat::Png,
+            )
             .expect("encode png");
         bytes
     }
@@ -519,12 +670,101 @@ mod tests {
         );
         assert_eq!(&raw[8..12], b"WEBP", "expected WEBP tag");
         // 32x32 lossy webp is tiny; sanity bound.
-        assert!(raw.len() < 4096, "placeholder unexpectedly large: {}", raw.len());
+        assert!(
+            raw.len() < 4096,
+            "placeholder unexpectedly large: {}",
+            raw.len()
+        );
     }
 
     #[test]
     fn invalid_blurhash_yields_no_webp() {
         assert!(blurhash_to_webp_base64("not-a-valid-blurhash").is_none());
+    }
+
+    /// Encode a flat single-color test image in the given format.
+    fn make_test_image_formatted(width: u32, height: u32, format: image::ImageFormat) -> Vec<u8> {
+        let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
+            ImageBuffer::from_pixel(width, height, Rgb([120, 40, 200]));
+        let mut bytes = Vec::new();
+        image::DynamicImage::ImageRgb8(img)
+            .write_to(&mut std::io::Cursor::new(&mut bytes), format)
+            .expect("encode image");
+        bytes
+    }
+
+    #[test]
+    fn probe_image_dimensions_reads_raster_headers() {
+        let env = TestEnv::new();
+        for (name, format) in [
+            ("a.png", image::ImageFormat::Png),
+            ("a.jpg", image::ImageFormat::Jpeg),
+            ("a.gif", image::ImageFormat::Gif),
+            ("a.webp", image::ImageFormat::WebP),
+        ] {
+            let bytes = make_test_image_formatted(40, 30, format);
+            let path = write_image(&env, name, &bytes);
+            assert_eq!(
+                probe_image_dimensions(&path).expect(name),
+                (40, 30),
+                "header probe failed for {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn probe_image_dimensions_reads_svg_absolute() {
+        let env = TestEnv::new();
+        let path = write_image(
+            &env,
+            "logo.svg",
+            br#"<?xml version="1.0" encoding="UTF-8"?>
+<!-- a leading comment -->
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect/></svg>"#,
+        );
+        assert_eq!(probe_image_dimensions(&path).expect("svg probe"), (120, 60));
+    }
+
+    #[test]
+    fn probe_image_dimensions_reads_svg_viewbox_only() {
+        let env = TestEnv::new();
+        let path = write_image(
+            &env,
+            "icon.svg",
+            br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>"#,
+        );
+        assert_eq!(probe_image_dimensions(&path).expect("svg probe"), (24, 24));
+    }
+
+    #[test]
+    fn probe_image_dimensions_prefers_svg_width_height() {
+        let env = TestEnv::new();
+        let path = write_image(
+            &env,
+            "mixed.svg",
+            br#"<svg viewBox="0 0 100 50" width="30" height="30"></svg>"#,
+        );
+        assert_eq!(probe_image_dimensions(&path).expect("svg probe"), (30, 30));
+    }
+
+    #[test]
+    fn probe_image_dimensions_rejects_relative_svg_sizes() {
+        let env = TestEnv::new();
+        let path = write_image(
+            &env,
+            "fluid.svg",
+            br#"<svg width="100%" height="100%" viewBox="0 0 0 0"></svg>"#,
+        );
+        assert!(probe_image_dimensions(&path).is_err());
+    }
+
+    #[test]
+    fn probe_image_dimensions_fails_for_non_images() {
+        let env = TestEnv::new();
+        let text = write_image(&env, "notes.txt", b"just some text");
+        assert!(probe_image_dimensions(&text).is_err());
+        let missing = env.project_root.join("ghost.png");
+        assert!(probe_image_dimensions(&missing).is_err());
     }
 
     #[test]
@@ -572,9 +812,15 @@ mod tests {
         let baked = data.webp_base64.clone().expect("baked");
 
         // Simulate a pre-migration row by clearing the baked webp.
-        diesel::update(blurhash_cache::table.filter(
-            blurhash_cache::relative_path.eq(path.strip_prefix(&env.project_root).unwrap().to_str().unwrap()),
-        ))
+        diesel::update(
+            blurhash_cache::table.filter(
+                blurhash_cache::relative_path.eq(path
+                    .strip_prefix(&env.project_root)
+                    .unwrap()
+                    .to_str()
+                    .unwrap()),
+            ),
+        )
         .set(blurhash_cache::webp_base64.eq::<Option<String>>(None))
         .execute(&mut ctx.db_conn)
         .expect("null out webp");

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Pull in the runtime types so `bun:test`, Node built-ins and `Buffer`
+    // resolve in the test file, including in editor language servers. The
+    // build tsconfig excludes `src/**/*.test.ts` to keep them out of `lib/`.
+    "noEmit": true,
+    "types": ["node", "bun"]
+  },
+  "exclude": ["lib"]
+}

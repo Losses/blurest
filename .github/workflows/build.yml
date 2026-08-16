@@ -356,7 +356,7 @@ jobs:
           # @fuuck/blurest-core (package.json "types" -> ./lib/index.d.cts).
           # `lib/` is gitignored, so on a clean CI checkout it does not exist
           # and tsc fails with TS2307 "Cannot find module '@fuuck/blurest-core'".
-          # Generate the TS declarations here — no cargo / neon needed for .d.ts.
+          # Generate the TS declarations here; no cargo / neon needed for .d.ts.
           bunx tsc
 
       - name: Build & Pack blurest-wc

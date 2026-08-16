@@ -17,6 +17,12 @@ export interface BlurhashCoreOptions {
    * Used to resolve relative image paths.
    */
   projectRoot: string;
+
+  /**
+   * Emit diagnostic logging (skipped-file reasons, dimension probe failures).
+   * Defaults to `false`: rendering stays silent unless asked.
+   */
+  verbose?: boolean;
 }
 
 /**
@@ -47,6 +53,14 @@ export interface BlurhashErrorResult {
  * Union return type for `get_blurhash` function.
  */
 export type BlurhashResult = BlurhashSuccessResult | BlurhashErrorResult;
+
+/**
+ * Intrinsic pixel dimensions probed from an image file header (no decode).
+ */
+export interface DimensionProbeResult {
+  width: number;
+  height: number;
+}
 
 /**
  * Success result type for `migrate_webp_placeholders`.
@@ -117,6 +131,19 @@ declare module "./load.cjs" {
    * @returns An object containing blurhash data or error information
    */
   function get_blurhash(imagePath: string): BlurhashResult;
+
+  /**
+   * Read the intrinsic pixel dimensions of an image file without decoding it.
+   * Covers every raster format `get_blurhash` decodes plus SVG; does not touch
+   * the cache database.
+   * @param imagePath Image file path
+   * @returns An object containing the dimensions or error information
+   */
+  function probe_image_dimensions(
+    imagePath: string
+  ):
+    | { success: true; width: number; height: number }
+    | { success: false; error: string };
 
   /**
    * Backfill the baked WebP placeholder for every cached image that is missing one.
@@ -346,9 +373,11 @@ export class BlurhashCore {
     const validation = validateFile(src, this.options.projectRoot);
 
     if (!validation.shouldProcess) {
-      console.debug(
-        `[blurhash-core] Skipping blurhash processing for "${src}": ${validation.reason}`
-      );
+      if (this.options.verbose) {
+        console.debug(
+          `[blurhash-core] Skipping blurhash processing for "${src}": ${validation.reason}`
+        );
+      }
       return null;
     }
 
@@ -357,11 +386,50 @@ export class BlurhashCore {
   }
 
   /**
+   * Read the intrinsic pixel dimensions of an image file without decoding it.
+   *
+   * Header-only probe via the native module: covers every raster format the
+   * blurhash path decodes, plus SVG (skipped by `processImage`). Intended for
+   * files that will not get a blurhash, skipped or failed, so their fallback
+   * markup can still carry layout hints. Unlike `processImage` there is no
+   * project-root restriction: callers pass resolved paths they already trust.
+   *
+   * @param src Image source path (relative paths resolve against projectRoot)
+   * @returns Dimensions, or `null` when they cannot be determined
+   */
+  probeDimensions(src: string): DimensionProbeResult | null {
+    if (!this.initialized) {
+      throw new Error(
+        "[blurhash-core] Core not initialized. Call initialize() first."
+      );
+    }
+
+    if (isNetworkUrl(src)) {
+      return null;
+    }
+
+    const resolvedPath = path.isAbsolute(src)
+      ? src
+      : path.resolve(this.options.projectRoot, src);
+
+    const result = addon.probe_image_dimensions(resolvedPath);
+    if (result.success) {
+      return { width: result.width, height: result.height };
+    }
+    if (this.options.verbose) {
+      console.debug(
+        `[blurhash-core] Failed to probe dimensions for "${src}": ${result.error}`
+      );
+    }
+    return null;
+  }
+
+  /**
    * Backfill the baked WebP placeholder for every cached image that is missing one.
    *
    * This is the migration entry point for databases that pre-date the WebP column
    * (or whose placeholder bake previously failed). Each missing placeholder is
-   * regenerated from the cached blurhash string — source image files are not read.
+   * regenerated from the cached blurhash string; source image files are not read.
    *
    * @returns Migration summary (processed/skipped counts) or an error result
    */

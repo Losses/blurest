@@ -79,6 +79,7 @@ use neon::prelude::*;
 use crate::core::{
     AppContext, get_blurhash_with_cache, initialize_and_connect_db,
     migrate_webp_placeholders as migrate_webp_placeholders_core,
+    probe_image_dimensions as probe_image_dimensions_core,
 };
 
 pub mod core;
@@ -248,12 +249,50 @@ fn get_blurhash(mut cx: FunctionContext) -> JsResult<JsObject> {
     Ok(obj)
 }
 
+/// Reads the intrinsic pixel dimensions of an image file without decoding it.
+///
+/// Covers every raster format the `image` crate knows (the same set the
+/// blurhash path decodes) plus SVG via root-element sniffing. Unlike
+/// `get_blurhash` this does not touch the cache database, so it also works
+/// for files that were skipped or failed during blurhash processing.
+///
+/// # Returns
+///
+/// * `JsObject` with fields:
+///   - `success: boolean` - Whether the dimensions could be read
+///   - `width: number` - The image width in pixels (only present on success)
+///   - `height: number` - The image height in pixels (only present on success)
+///   - `error: string` - Error message (only present on failure)
+fn probe_image_dimensions(mut cx: FunctionContext) -> JsResult<JsObject> {
+    let image_path = cx.argument::<JsString>(0)?.value(&mut cx);
+
+    let obj = cx.empty_object();
+    match probe_image_dimensions_core(Path::new(&image_path)) {
+        Ok((width, height)) => {
+            let success = cx.boolean(true);
+            let width_value = cx.number(width);
+            let height_value = cx.number(height);
+            obj.set(&mut cx, "success", success)?;
+            obj.set(&mut cx, "width", width_value)?;
+            obj.set(&mut cx, "height", height_value)?;
+        }
+        Err(e) => {
+            let success = cx.boolean(false);
+            let error = cx.string(format!("Error: {e}"));
+            obj.set(&mut cx, "success", success)?;
+            obj.set(&mut cx, "error", error)?;
+        }
+    }
+
+    Ok(obj)
+}
+
 /// Backfills the baked WebP placeholder (`webp_base64`) for every cache row that
 /// is missing one.
 ///
 /// This is the one-time migration path for databases that pre-date the WebP
 /// column (or whose bake previously failed). Placeholders are regenerated purely
-/// from the cached blurhash string — no source image files are read.
+/// from the cached blurhash string; no source image files are read.
 ///
 /// # Returns
 ///
@@ -406,6 +445,7 @@ fn clear_context(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("initialize_blurhash_cache", initialize_blurhash_cache)?;
     cx.export_function("get_blurhash", get_blurhash)?;
+    cx.export_function("probe_image_dimensions", probe_image_dimensions)?;
     cx.export_function("migrate_webp_placeholders", migrate_webp_placeholders)?;
     cx.export_function("is_initialized", is_initialized)?;
     cx.export_function("clear_context", clear_context)?;

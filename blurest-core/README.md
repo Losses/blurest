@@ -63,6 +63,8 @@ new BlurhashCore(options: BlurhashCoreOptions)
 
 - `databasePath`: Path of the database file, will be created if it doesn't exist
 - `projectRoot`: Absolute path to your project root directory
+- `verbose`: Emit skip/diagnostic logging (skipped files, dimension probe
+  failures). Defaults to `false`.
 
 #### Methods
 
@@ -98,12 +100,30 @@ const result = blurhash.processImage("./images/photo.jpg");
 - `BlurhashErrorResult` on error
 - `null` if processing should be skipped
 
+##### `probeDimensions(src: string): DimensionProbeResult | null`
+
+Reads the intrinsic pixel dimensions of an image file from its header, without
+decoding pixels or touching the cache database. Covers every raster format
+`processImage` decodes, plus SVG via its root element (absolute `width`/`height`,
+else `viewBox`).
+
+Intended for files that will not get a blurhash: skipped ones (SVG) and failed
+ones. On success `processImage` already returns dimensions alongside the
+blurhash; this method is the standalone answer when there is no blurhash to
+return. Unlike `processImage` it accepts paths outside the project root, so
+pass resolved paths you trust.
+
+```typescript
+const dims = blurhash.probeDimensions("./images/logo.svg");
+// → { width: 120, height: 60 }, or null when no absolute pair can be derived
+```
+
 ##### `migrateWebpPlaceholders(): WebpMigrationResult`
 
 Backfills the baked WebP placeholder for every cached image that is missing one.
 This is the one-time upgrade path for databases that pre-date the `webp_base64`
 column (or whose placeholder bake previously failed). Each missing placeholder is
-regenerated **purely from the cached blurhash string** — source image files are
+regenerated **purely from the cached blurhash string**; source image files are
 never read, so migration is safe even if images have been moved or deleted.
 
 ```typescript
@@ -117,7 +137,7 @@ if (migration.success) {
 
 The migration is idempotent: re-running it reports `processed: 0` once every row
 has a placeholder. Note that placeholders are also baked lazily on cache hits, so
-calling this method is optional — it just front-fills the whole table at once.
+calling this method is optional; it just front-fills the whole table at once.
 
 ##### `cleanup(): boolean`
 
@@ -374,7 +394,7 @@ The library automatically validates files before processing:
 
 ## Database Migrations
 
-On every initialization the cache schema is reconciled automatically — no manual
+On every initialization the cache schema is reconciled automatically, and no manual
 migration step is required:
 
 - The `blurhash_cache` table is created if missing (now including the

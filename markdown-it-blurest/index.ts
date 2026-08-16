@@ -48,6 +48,27 @@ interface AxBlurestPluginOptions extends BlurhashCoreOptions {
    * Used to handle relative path image resource mapping
    */
   staticFileMapping?: StaticFileMapping;
+
+  /**
+   * Emit `loading="lazy" decoding="async"` on rendered `<img>` tags
+   * (default true).
+   *
+   * Inside `<ax-blurest>` the fallback `<img>` is visible only in the
+   * pre-upgrade / no-JS window: once the custom element upgrades it stops
+   * rendering, and the component loads the real image itself when it enters
+   * the viewport. Lazy loading keeps the fallback from eagerly fetching the
+   * full image during that window (and, without JS, until it nears the
+   * viewport). On plain fallback `<img>` tags (no blurhash component) it is
+   * the usual off-screen bandwidth saving.
+   */
+  lazy?: boolean;
+
+  /**
+   * Forwarded to the core: emit skip/diagnostic logging while rendering
+   * (skipped files, dimension probe failures). Defaults to `false`, keeping
+   * renders silent.
+   */
+  verbose?: boolean;
 }
 
 /**
@@ -370,6 +391,34 @@ function axBlurestImageParser(state: StateInline, silent: boolean): boolean {
 }
 
 /**
+ * Fill in the missing side of a single-sided render dimension from the
+ * intrinsic aspect ratio, so width/height hints never distort the ratio.
+ */
+function resolveImgDimensions(
+  renderWidth: number | null,
+  renderHeight: number | null,
+  intrinsicWidth: number | null,
+  intrinsicHeight: number | null
+): { width: number | null; height: number | null } {
+  let width = renderWidth;
+  let height = renderHeight;
+  const hasIntrinsic =
+    intrinsicWidth !== null &&
+    intrinsicHeight !== null &&
+    intrinsicWidth > 0 &&
+    intrinsicHeight > 0;
+  if (width === null && height === null && hasIntrinsic) {
+    width = intrinsicWidth;
+    height = intrinsicHeight;
+  } else if (width !== null && height === null && hasIntrinsic) {
+    height = Math.round((width * intrinsicHeight) / intrinsicWidth);
+  } else if (height !== null && width === null && hasIntrinsic) {
+    width = Math.round((height * intrinsicWidth) / intrinsicHeight);
+  }
+  return { width, height };
+}
+
+/**
  * Render a fallback <img> tag.
  */
 function renderFallbackImg(
@@ -377,14 +426,25 @@ function renderFallbackImg(
   alt: string,
   renderWidth: number | null,
   renderHeight: number | null,
+  intrinsicWidth: number | null,
+  intrinsicHeight: number | null,
+  lazy: boolean,
   md: MarkdownIt
 ): string {
   const escapedAlt = md.utils.escapeHtml(alt);
   const escapedSrc = md.utils.escapeHtml(src);
 
+  const { width, height } = resolveImgDimensions(
+    renderWidth,
+    renderHeight,
+    intrinsicWidth,
+    intrinsicHeight
+  );
+
   const attrs: string[] = [`src="${escapedSrc}"`, `alt="${escapedAlt}"`];
-  if (renderWidth !== null) attrs.push(`width="${renderWidth}"`);
-  if (renderHeight !== null) attrs.push(`height="${renderHeight}"`);
+  if (width !== null) attrs.push(`width="${width}"`);
+  if (height !== null) attrs.push(`height="${height}"`);
+  if (lazy) attrs.push(`loading="lazy"`, `decoding="async"`);
 
   return `<img ${attrs.join(" ")}>`;
 }
@@ -401,7 +461,8 @@ function renderAxBlurestComponent(
   srcWidth: number,
   srcHeight: number,
   md: MarkdownIt,
-  blurhashWebp: string | null
+  blurhashWebp: string | null,
+  lazy: boolean
 ): string {
   const escapedAlt = md.utils.escapeHtml(alt);
   const escapedSrc = md.utils.escapeHtml(src);
@@ -427,14 +488,23 @@ function renderAxBlurestComponent(
     .map(([key, value]) => `${key}="${value}"`)
     .join(" ");
 
-  // Build inner <img> tag attributes
-  const imgAttrs: string[] = [];
-  if (renderWidth !== null) imgAttrs.push(`width="${renderWidth}"`);
-  if (renderHeight !== null) imgAttrs.push(`height="${renderHeight}"`);
+  // Inner <img> carries dimension hints for pre-upgrade layout: explicit
+  // render dimensions win, with the missing side completed from the intrinsic
+  // ratio; without render dimensions the intrinsic size is the hint.
+  const { width, height } = resolveImgDimensions(
+    renderWidth,
+    renderHeight,
+    srcWidth,
+    srcHeight
+  );
 
-  const imgTag = `<img ${imgAttrs.join(
-    " "
-  )} alt="${escapedAlt}" src="${escapedSrc}" />`;
+  const imgAttrs: string[] = [];
+  if (width !== null) imgAttrs.push(`width="${width}"`);
+  if (height !== null) imgAttrs.push(`height="${height}"`);
+  imgAttrs.push(`alt="${escapedAlt}"`, `src="${escapedSrc}"`);
+  if (lazy) imgAttrs.push(`loading="lazy"`, `decoding="async"`);
+
+  const imgTag = `<img ${imgAttrs.join(" ")} />`;
 
   return `<ax-blurest ${axAttrsString}>${imgTag}</ax-blurest>`;
 }
@@ -449,7 +519,8 @@ function axBlurestPlugin(
   md: MarkdownIt,
   options: AxBlurestPluginOptions
 ): void {
-  const { databasePath, staticFileMapping, ...coreOptions } = options;
+  const { databasePath, staticFileMapping, lazy = true, ...coreOptions } =
+    options;
 
   // Create core options with the correct database URL parameter
   const blurhashCoreOptions: BlurhashCoreOptions = {
@@ -504,17 +575,27 @@ function axBlurestPlugin(
 
     const result = core.processImage(resolvedSrc);
 
-    if (!result) {
-      // Use fallback <img> tag for skipped files
-      return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
-    }
-
-    if (!result.success) {
-      console.warn(
-        `[markdown-it-ax-blurest] Failed to get blurhash for "${resolvedSrc}" (original: "${cleanSrc}"): ${result.error}`
+    if (!result || !result.success) {
+      if (result && !result.success) {
+        console.warn(
+          `[markdown-it-ax-blurest] Failed to get blurhash for "${resolvedSrc}" (original: "${cleanSrc}"): ${result.error}`
+        );
+      }
+      // Fallback <img>: ask the core for the intrinsic dimensions (header
+      // probe in native code, same format set as the blurhash path plus SVG)
+      // so the tag still carries layout hints even without imsize syntax.
+      // Network URLs and unreadable files probe to null silently.
+      const probed = core.probeDimensions(resolvedSrc);
+      return renderFallbackImg(
+        cleanSrc,
+        alt,
+        renderWidth,
+        renderHeight,
+        probed?.width ?? null,
+        probed?.height ?? null,
+        lazy,
+        md
       );
-      // Fallback to standard <img> tag on processing error
-      return renderFallbackImg(cleanSrc, alt, renderWidth, renderHeight, md);
     }
 
     const { blurhash, width: srcWidth, height: srcHeight, webpBase64 } = result;
@@ -528,7 +609,8 @@ function axBlurestPlugin(
       srcWidth,
       srcHeight,
       md,
-      webpBase64
+      webpBase64,
+      lazy
     );
   };
 

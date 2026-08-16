@@ -99,7 +99,7 @@ the `@fuuck/blurest-core` / `markdown-it-blurest` pipeline emits automatically
 The placeholder is a 32×32 WebP upscaled to fill the container, so a
 `filter: blur(20px)` is applied to the backdrop layer to hide the upscaling
 artifacts. When `blurhash-webp` is **absent**, the component falls back to its
-original behavior of decoding the `blurhash` into CSS — so omitting the attribute
+original behavior of decoding the `blurhash` into CSS, so omitting the attribute
 remains fully supported.
 
 ## Display Modes

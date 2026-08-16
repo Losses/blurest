@@ -85,7 +85,7 @@ When blurhash is successfully generated, the plugin outputs:
   render-width="400"
   render-height="300"
 >
-  <img width="400" height="300" alt="Alt text" src="image.jpg" />
+  <img width="400" height="300" alt="Alt text" src="image.jpg" loading="lazy" decoding="async" />
 </ax-blurest>
 ```
 
@@ -94,23 +94,39 @@ The `blurhash-webp` attribute carries the pre-baked WebP placeholder from
 component can render the blurred backdrop straight from the cached image. It is
 omitted automatically when no placeholder is available.
 
+The inner `<img>` is the fallback shown before the custom element upgrades, or
+when JS is unavailable. Its `width`/`height` reserve layout space at the correct
+aspect ratio: explicit imsize dimensions win, a missing side is filled from the
+intrinsic ratio, and without imsize the intrinsic dimensions are used.
+`loading="lazy"` keeps the fallback from fetching the full image early; after
+upgrade the component loads the image itself on viewport entry.
+
 ### Fallback Output
 
-When blurhash generation fails or is skipped (this includes **SVG images**, which
-the pipeline cannot render and skips entirely):
+When the image is skipped (notably SVG) or blurhash generation fails, the
+plugin emits a plain `<img>`, probing the local file header for intrinsic
+dimensions:
 
 ```html
-<img src="image.jpg" alt="Alt text" width="400" height="300" />
+<img src="image.jpg" alt="Alt text" width="400" height="300" loading="lazy" decoding="async" />
 ```
+
+Width/height are omitted when no dimensions are available (network URLs,
+unreadable files).
 
 ## Configuration
 
-The plugin accepts all configuration options from `@fuuck/blurest-core`. Refer to the BlurhashCore documentation for detailed configuration options.
+The plugin accepts all configuration options from `@fuuck/blurest-core`. Refer
+to the BlurhashCore documentation for detailed configuration options, plus two
+plugin-specific options:
 
 ```javascript
 md.use(axBlurestPlugin, {
-  // Example configuration
-  // Add your BlurhashCoreOptions here
+  // BlurhashCoreOptions (databasePath, projectRoot, ...)
+
+  // Plugin options:
+  lazy: true, // add loading="lazy" decoding="async" to <img> tags (default true)
+  verbose: false, // enable skip/diagnostic logging (default false)
 });
 ```
 

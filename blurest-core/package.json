@@ -5,7 +5,7 @@
   "repository": "https://github.com/Losses/blurest",
   "main": "./lib/index.cjs",
   "scripts": {
-    "test": "tsc && bun test && cargo test",
+    "test": "tsc && tsc -p tsconfig.test.json && bun test && cargo test",
     "cargo-build": "tsc && cargo build -p blurest-core --message-format=json-render-diagnostics > cargo.log",
     "postcargo-build": "neon dist < cargo.log",
     "debug": "bun run cargo-build",
