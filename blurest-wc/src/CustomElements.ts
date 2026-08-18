@@ -25,6 +25,7 @@ export class AxBlurest extends PatchedHTMLElement {
 
     connectedCallback() {
         this.render();
+        this.mountIfLoaded();
         this.setupIntersectionObserver();
     }
 
@@ -58,6 +59,8 @@ export class AxBlurest extends PatchedHTMLElement {
     }
 
     private handleViewportEntry() {
+        this.mountIfLoaded();
+
         if (this.isImageLoaded || this.isImageError) {
             return;
         }
@@ -386,6 +389,46 @@ export class AxBlurest extends PatchedHTMLElement {
             'background-repeat: no-repeat;',
             'filter: blur(20px);',
         ].join('\n                    ');
+    }
+
+    /**
+     * Mount the image directly when the fallback <img> in the light DOM has
+     * already finished loading. The renderer emits that fallback with the real
+     * src, so the browser usually has the image in cache (or painted on screen)
+     * before this component upgrades; going through the placeholder would
+     * flash a blur layer over an image that is in fact ready.
+     */
+    private mountIfLoaded() {
+        if (this.isImageLoaded || this.isImageError) return;
+
+        const src = this.getAttribute('src');
+        const fallback = this.querySelector('img');
+        if (!src || !fallback || !fallback.complete || fallback.naturalWidth === 0) return;
+        // A mutated src attribute no longer matches the fallback, so its
+        // loaded state says nothing about the current image.
+        if (fallback.getAttribute('src') !== src) return;
+
+        const imageLayer = this.root.querySelector('.image-layer') as HTMLImageElement | null;
+        if (!imageLayer) return;
+
+        imageLayer.classList.add('no-animation');
+        imageLayer.src = src;
+        imageLayer.classList.add('loaded');
+
+        const blurhashLayer = this.root.querySelector('.blurhash-layer');
+        const blurhashBackdropLayer = this.root.querySelector('.blurhash-backdrop-layer');
+        blurhashLayer?.classList.add('fade-out');
+        blurhashBackdropLayer?.classList.add('fade-out');
+
+        this.isImageLoaded = true;
+
+        this.dispatchEvent(
+            new CustomEvent('image-loaded', {
+                detail: { src },
+                bubbles: true,
+                composed: true,
+            })
+        );
     }
 
     loadImage() {
