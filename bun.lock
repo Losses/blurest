@@ -10,7 +10,7 @@
     },
     "blurest-core": {
       "name": "@fuuck/blurest-core",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "dependencies": {
         "@neon-rs/load": "^0.1.82",
       },
@@ -30,27 +30,27 @@
     },
     "blurest-core/platforms/darwin-arm64": {
       "name": "@fuuck/blurest-core-darwin-arm64",
-      "version": "0.4.1",
+      "version": "0.4.2",
     },
     "blurest-core/platforms/darwin-x64": {
       "name": "@fuuck/blurest-core-darwin-x64",
-      "version": "0.4.1",
+      "version": "0.4.2",
     },
     "blurest-core/platforms/linux-arm64-gnu": {
       "name": "@fuuck/blurest-core-linux-arm64-gnu",
-      "version": "0.4.1",
+      "version": "0.4.2",
     },
     "blurest-core/platforms/linux-x64-gnu": {
       "name": "@fuuck/blurest-core-linux-x64-gnu",
-      "version": "0.4.1",
+      "version": "0.4.2",
     },
     "blurest-core/platforms/win32-x64-msvc": {
       "name": "@fuuck/blurest-core-win32-x64-msvc",
-      "version": "0.4.1",
+      "version": "0.4.2",
     },
     "blurest-wc": {
       "name": "@fuuck/blurest-wc",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "devDependencies": {
         "@types/bun": "latest",
         "npm-run-all": "^4.1.5",
@@ -63,7 +63,7 @@
     },
     "markdown-it-blurest": {
       "name": "@fuuck/markdown-it-blurest",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "dependencies": {
         "@fuuck/blurest-core": "workspace:*",
       },

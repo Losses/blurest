@@ -1,6 +1,6 @@
 {
     "name": "@fuuck/blurest-wc",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "description": "Web component that implement the image lazy loading image.",
     "main": "build/main.js",
     "module": "es/index.js",
